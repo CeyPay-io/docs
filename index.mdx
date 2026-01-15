@@ -1,0 +1,178 @@
+---
+title: "Introduction"
+description: "Accept digital currency. Get paid in Sri Lankan Rupees."
+---
+
+<img className="block dark:hidden" src="/images/hero-light.png" alt="CeyPay Payment Gateway" />
+
+<img className="hidden dark:block" src="/images/hero-dark.png" alt="CeyPay Payment Gateway" />
+
+## Accept digital currency. Get paid in Sri Lankan Rupees.
+
+**No wallets. No crypto knowledge. No extra steps.**
+
+CeyPay is the payment gateway that bridges the gap between cryptocurrency and traditional banking. Your customers pay in USDT or crypto—you receive LKR straight into your bank account.
+
+<CardGroup cols={3}>
+    <Card title="Native Crypto Audience" icon="users">
+        Tap into our passionate crypto-ready community. Reach more customers online and offline.
+    </Card>
+    <Card title="Lowest Transaction Fees" icon="chart-line">
+        We grow when you grow. Low transaction fees means more profits for your business.
+    </Card>
+    <Card title="50+ Cryptocurrencies" icon="coins">
+        Accept payments in USDT, Bitcoin, Ethereum, and over 50 other cryptocurrencies and
+        stablecoins.
+    </Card>
+</CardGroup>
+
+## What is CeyPay?
+
+CeyPay is a comprehensive cryptocurrency payment platform built for Sri Lankan businesses. We make accepting crypto payments as simple as accepting cash—customers pay with their preferred digital currency, and you receive Sri Lankan Rupees directly in your bank account.
+
+**Powered by leading crypto platforms:**
+
+<div style={{ display:"flex",justifyContent:"center",gap:"40px",margin:"30px 0",flexWrap:"wrap",alignItems:"center" }}>
+<img
+  src="/images/binance.svg"
+  alt="Binance Pay"
+  style={{ height:"32px" }}
+/>
+
+<img src="/images/bybit.svg" alt="Bybit" style={{ height: "32px" }} />
+
+<img src="/images/bitazza.svg" alt="Bitazza" style={{ height: "32px" }} />
+
+<img src="/images/solana.svg" alt="Solana" style={{ height: "32px" }} />
+
+</div>
+
+<Note>
+    CeyPay integrates with major crypto wallets and blockchain networks including Binance Pay,
+    Bybit, Bitazza, and Solana.
+</Note>
+
+## WordPress Plugin for WooCommerce
+
+This documentation covers the **CeyPay WordPress Plugin**—the easiest way to accept cryptocurrency payments on your WooCommerce store.
+
+With just a few clicks, you can:
+
+- ✅ Accept payments from Binance Pay, Bybit, and Bitazza
+- ✅ Automatically convert crypto to LKR
+- ✅ Receive instant payment notifications
+- ✅ Provide a seamless checkout experience
+- ✅ Test everything in sandbox mode before going live
+
+**No blockchain knowledge required.** The plugin handles all the technical complexity while you focus on running your business.
+
+## Supported Payment Providers
+
+<div style={{ display:"flex",justifyContent:"center",gap:"40px",margin:"30px 0",flexWrap:"wrap" }}>
+<img
+  src="/images/binance.svg"
+  alt="Binance Pay"
+  style={{ height:"40px" }}
+/>
+
+<img src="/images/bybit.svg" alt="Bybit" style={{ height: "40px" }} />
+
+<img src="/images/bitazza.svg" alt="Bitazza" style={{ height: "40px" }} />
+
+</div>
+
+## Key Features
+
+<CardGroup cols={2}>
+    <Card title="Multi-Provider Support" icon="wallet">
+        Accept payments from Binance Pay, Bybit, and Bitazza. Customers choose their preferred
+        crypto wallet at checkout.
+    </Card>
+    <Card title="Real-Time Verification" icon="bolt">
+        Payments are verified in real-time through webhooks and polling, ensuring orders are
+        processed immediately.
+    </Card>
+    <Card title="Mobile Optimized" icon="mobile">
+        Deep linking support automatically opens the customer's crypto wallet app on mobile devices.
+    </Card>
+    <Card title="WooCommerce Blocks" icon="cube">
+        Full compatibility with WooCommerce Blocks checkout for modern storefronts.
+    </Card>
+    <Card title="Test Mode" icon="flask">
+        Built-in test mode with payment simulation for safe integration testing.
+    </Card>
+    <Card title="Secure Webhooks" icon="shield-check">
+        HMAC-SHA256 signed webhooks ensure payment notifications are authentic.
+    </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+    <Step title="Customer Selects CeyPay">
+        At checkout, the customer selects CeyPay as their payment method and clicks "Place Order".
+    </Step>
+    <Step title="Choose Crypto Provider">
+        A modal appears where the customer selects their preferred crypto wallet (Binance, Bybit, or
+        Bitazza).
+    </Step>
+    <Step title="Scan QR Code">
+        A QR code is generated for the selected provider. On mobile, a deep link button opens the
+        wallet app directly.
+    </Step>
+    <Step title="Payment Confirmation">
+        CeyPay monitors the payment status in real-time. Once confirmed, the order is automatically
+        marked as complete.
+    </Step>
+</Steps>
+
+## WordPress Plugin Endpoint
+
+The CeyPay WordPress Plugin automatically creates a dedicated webhook endpoint for receiving payment notifications:
+
+<CodeGroup>
+
+```bash Webhook Endpoint
+https://yoursite.com/?wc-api=WC_Gateway_CeyPay
+```
+
+</CodeGroup>
+
+<Tip>
+    This endpoint is automatically configured by the plugin. All payment confirmations from Binance
+    Pay, Bybit, and Bitazza are securely delivered to this URL with HMAC-SHA256 signature
+    verification.
+</Tip>
+
+## Requirements
+
+Before installing CeyPay, ensure your environment meets these requirements:
+
+| Requirement     | Version               |
+| --------------- | --------------------- |
+| WordPress       | 5.8 or higher         |
+| WooCommerce     | 7.0 or higher         |
+| PHP             | 7.4 or higher         |
+| SSL Certificate | Required for webhooks |
+
+<Warning>
+    Your website must be accessible from the internet with a valid SSL certificate for webhooks to
+    function correctly. The CeyPay endpoint requires HTTPS for secure communication.
+</Warning>
+
+## Quick Links
+
+<CardGroup cols={2}>
+    <Card title="Quickstart Guide" icon="rocket" href="/wordpress/quickstart">
+        Get CeyPay installed and configured in minutes.
+    </Card>
+    <Card title="Configuration" icon="gear" href="/wordpress/configuration">
+        Detailed settings reference for all CeyPay options.
+    </Card>
+    <Card title="Webhook Reference" icon="webhook" href="/wordpress/webhooks">
+        Technical documentation for webhook integration.
+    </Card>
+    <Card title="Troubleshooting" icon="wrench" href="/wordpress/troubleshooting">
+        Common issues and their solutions.
+    </Card>
+</CardGroup>
