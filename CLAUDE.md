@@ -11,7 +11,7 @@ This is a Mintlify-based documentation site for **CeyPay WordPress Plugin**—a 
 ```
 /
 ├── CLAUDE.md                 # This file - guidance for Claude Code
-├── tone_of_voice.mdx         # Writing standards and style guide
+├── TONE.md                   # Writing standards and style guide (for AI tools)
 ├── docs.json                 # Mintlify configuration (navigation, theme, metadata)
 ├── index.mdx                 # Main landing page
 ├── faq.mdx                   # FAQ page
@@ -91,7 +91,7 @@ Refer to existing files for usage patterns before creating new content.
 
 ### Writing Standards
 
-**IMPORTANT**: Before creating or editing any documentation, consult `tone_of_voice.mdx` for comprehensive writing standards. This file defines:
+**IMPORTANT**: Before creating or editing any documentation, consult `TONE.md` for comprehensive writing standards. This file defines:
 - Voice and tone (professional, direct, merchant-first)
 - Writing structure (strong verbs, concise sentences, active voice)
 - CeyPay-specific terminology and conventions
