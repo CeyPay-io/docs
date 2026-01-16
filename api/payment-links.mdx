@@ -19,7 +19,7 @@ https://api.ceypay.io
 |--------|----------|-------------|------------|
 | POST | `/v1/payment-link` | Create a new payment link | 50 req/min |
 | GET | `/v1/payment-link/:id` | Get payment link details | 100 req/min |
-| GET | `/v1/payment-link` | List payment links | 100 req/min |
+| GET | `/v1/payment-link/list` | List payment links | 100 req/min |
 | PATCH | `/v1/payment-link/:id` | Update a payment link | 50 req/min |
 | DELETE | `/v1/payment-link/:id` | Deactivate a payment link | 50 req/min |
 
@@ -31,6 +31,24 @@ Create a new payment link.
 
 ```
 POST /v1/payment-link
+```
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/payment-link" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "name": "Premium Subscription",
+    "description": "Monthly premium plan subscription",
+    "amount": 49.99,
+    "currency": "USDT",
+    "reusable": true,
+    "allow_custom_amount": false
+  }'
 ```
 
 ### Request Body
@@ -47,19 +65,6 @@ POST /v1/payment-link
 | `reusable` | boolean | No | Whether the link can be used multiple times. Default: `true`. |
 | `expiration_date` | string | No | Expiration date in ISO 8601 format. |
 | `branchId` | string | No | Branch ID to associate with. |
-
-### Example Request
-
-```json
-{
-  "name": "Premium Subscription",
-  "description": "Monthly premium plan subscription",
-  "amount": 49.99,
-  "currency": "USDT",
-  "reusable": true,
-  "allow_custom_amount": false
-}
-```
 
 ### Example Response (201 Created)
 
@@ -93,6 +98,15 @@ Get details of a specific payment link.
 GET /v1/payment-link/:id
 ```
 
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446655440000" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
 ### Example Response (200 OK)
 
 ```json
@@ -116,7 +130,16 @@ GET /v1/payment-link/:id
 Retrieve a paginated list of payment links.
 
 ```
-GET /v1/payment-link
+GET /v1/payment-link/list
+```
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/payment-link/list?page=1&pageSize=20" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
 ```
 
 ### Query Parameters
@@ -161,6 +184,20 @@ Update an existing payment link.
 PATCH /v1/payment-link/:id
 ```
 
+### Example Request
+
+```bash
+curl -X PATCH "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "amount": 59.99,
+    "description": "Updated premium plan price"
+  }'
+```
+
 ### Request Body (Optional Fields)
 
 | Field | Type | Description |
@@ -174,15 +211,6 @@ PATCH /v1/payment-link/:id
 | `max_amount` | number | Max custom amount. |
 | `expiration_date` | string | Expiration date. |
 
-### Example Request
-
-```json
-{
-  "amount": 59.99,
-  "description": "Updated premium plan price"
-}
-```
-
 ### Example Response (200 OK)
 
 Returns the updated payment link object.
@@ -195,6 +223,15 @@ Deactivate (soft delete) a payment link. It will no longer accept new payments.
 
 ```
 DELETE /v1/payment-link/:id
+```
+
+### Example Request
+
+```bash
+curl -X DELETE "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446655440000" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
 ```
 
 ### Example Response (200 OK)

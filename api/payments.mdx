@@ -53,12 +53,12 @@ Requires [HMAC authentication](./authentication.md) with headers:
 | `orderExpireTime` | string | No | Expiration time (Unix timestamp in seconds) |
 | `webhookUrl` | string | No | URL to receive payment status updates |
 | `merchantTradeNo` | string | No | Your internal order reference |
-| `customerBilling` | object | No | Customer billing details |
-| `customerBilling.firstName` | string | No | Customer first name |
-| `customerBilling.lastName` | string | No | Customer last name |
-| `customerBilling.email` | string | No | Customer email |
-| `customerBilling.phone` | string | No | Customer phone |
-| `customerBilling.address` | string | No | Street address |
+| `customerBilling` | object | Yes | Customer billing details |
+| `customerBilling.firstName` | string | Yes | Customer first name |
+| `customerBilling.lastName` | string | Yes | Customer last name |
+| `customerBilling.email` | string | Yes | Customer email |
+| `customerBilling.phone` | string | Yes | Customer phone |
+| `customerBilling.address` | string | Yes | Street address |
 | `customerBilling.city` | string | No | City |
 | `customerBilling.postalCode` | string | No | Postal/ZIP code |
 | `customerBilling.country` | string | No | Country |
@@ -91,7 +91,9 @@ curl -X POST "https://api.ceypay.io/v1/payment" \
     "customerBilling": {
       "email": "customer@example.com",
       "firstName": "John",
-      "lastName": "Doe"
+      "lastName": "Doe",
+      "phone": "+94771234567",
+      "address": "123 Main Street"
     }
   }'
 ```
