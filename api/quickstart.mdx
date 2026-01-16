@@ -1,0 +1,447 @@
+---
+title: "Quick Start Guide"
+description: "Get started with the CeyPay API in minutes. This guide walks you through creating your first payment."
+---
+
+## Prerequisites
+
+- A CeyPay merchant account ([sign up here](https://merchant.ceypay.io))
+- Completed merchant onboarding and KYC verification
+- Your preferred programming language (Node.js, Python, PHP, etc.)
+
+## Step 1: Generate API Key
+
+1. Log in to your [CeyPay Dashboard](https://merchant.ceypay.io)
+2. Navigate to **Settings** → **API Keys**
+3. Click **Generate New API Key**
+4. Give it a descriptive name (e.g., "Production API Key")
+5. **Copy the API key immediately** (you'll only see it once!)
+
+Your API key looks like: `ak_live_abc123xyz.sk_live_def456uvw`
+
+- `ak_live_abc123xyz` - Public key ID
+- `sk_live_def456uvw` - Secret key (keep this private!)
+
+**Important**: Store your API key securely (environment variable, secrets manager, etc.)
+
+## Step 2: Make Your First API Call
+
+### Create a Payment
+
+Let's create a simple payment for $100 USDT:
+
+#### Node.js
+
+```javascript
+const crypto = require('crypto');
+const axios = require('axios');
+
+// Your API key (store in environment variable)
+const API_KEY = process.env.CEYPAY_API_KEY; // e.g., ak_live_xxx.sk_live_yyy
+const [publicKey, secretKey] = API_KEY.split('.');
+
+// Create payment
+async function createPayment() {
+  const timestamp = Date.now().toString();
+  const method = 'POST';
+  const path = '/v1/payment';
+
+  const body = JSON.stringify({
+    amount: 100,
+    currency: 'USDT',
+    goods: [
+      {
+        name: 'Premium Plan',
+        description: 'Monthly subscription to premium features'
+      }
+    ],
+    customerBilling: {
+      email: 'customer@example.com',
+      firstName: 'John',
+      lastName: 'Doe'
+    }
+  });
+
+  // Generate signature
+  const message = timestamp + method + path + body;
+  const signature = crypto
+    .createHmac('sha256', secretKey)
+    .update(message)
+    .digest('hex');
+
+  // Make request
+  const response = await axios.post(
+    `https://api.ceypay.io${path}`,
+    JSON.parse(body),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY,
+        'x-timestamp': timestamp,
+        'x-signature': signature
+      }
+    }
+  );
+
+  console.log('Payment created:', response.data);
+  console.log('Checkout link:', response.data.checkoutLink);
+  console.log('QR code:', response.data.qrContent);
+
+  return response.data;
+}
+
+createPayment().catch(console.error);
+```
+
+#### Python
+
+```python
+import os
+import hmac
+import hashlib
+import time
+import json
+import requests
+
+# Your API key (store in environment variable)
+API_KEY = os.getenv('CEYPAY_API_KEY')  # e.g., ak_live_xxx.sk_live_yyy
+public_key, secret_key = API_KEY.split('.')
+
+def create_payment():
+    timestamp = str(int(time.time() * 1000))
+    method = 'POST'
+    path = '/v1/payment'
+
+    body_dict = {
+        'amount': 100,
+        'currency': 'USDT',
+        'goods': [
+            {
+                'name': 'Premium Plan',
+                'description': 'Monthly subscription to premium features'
+            }
+        ],
+        'customerBilling': {
+            'email': 'customer@example.com',
+            'firstName': 'John',
+            'lastName': 'Doe'
+        }
+    }
+    body = json.dumps(body_dict)
+
+    # Generate signature
+    message = f"{timestamp}{method}{path}{body}"
+    signature = hmac.new(
+        secret_key.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    # Make request
+    response = requests.post(
+        f'https://api.ceypay.io{path}',
+        json=body_dict,
+        headers={
+            'x-api-key': API_KEY,
+            'x-timestamp': timestamp,
+            'x-signature': signature
+        }
+    )
+
+    data = response.json()
+    print('Payment created:', data)
+    print('Checkout link:', data['checkoutLink'])
+    print('QR code:', data['qrContent'])
+
+    return data
+
+if __name__ == '__main__':
+    create_payment()
+```
+
+#### cURL
+
+```bash
+#!/bin/bash
+
+API_KEY="ak_live_abc123xyz.sk_live_def456uvw"
+SECRET_KEY="sk_live_def456uvw"
+TIMESTAMP=$(date +%s)000
+METHOD="POST"
+PATH="/v1/payment"
+
+BODY='{
+  "amount": 100,
+  "currency": "USDT",
+  "goods": [
+    {
+      "name": "Premium Plan",
+      "description": "Monthly subscription to premium features"
+    }
+  ],
+  "customerBilling": {
+    "email": "customer@example.com",
+    "firstName": "John",
+    "lastName": "Doe"
+  }
+}'
+
+MESSAGE="${TIMESTAMP}${METHOD}${PATH}${BODY}"
+SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SECRET_KEY" | cut -d' ' -f2)
+
+curl -X POST "https://api.ceypay.io${PATH}" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -H "x-timestamp: $TIMESTAMP" \
+  -H "x-signature: $SIGNATURE" \
+  -d "$BODY"
+```
+
+### Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "payId": "bybit_pay_abc123",
+  "merchantTradeNo": "TXN-2025-12345",
+  "amount": 100,
+  "currency": "USDT",
+  "status": "INITIATED",
+  "qrContent": "bybit://pay?id=abc123",
+  "checkoutLink": "https://checkout.bybit.com/pay/abc123",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "feeBreakdown": {
+    "exchangeFeePercentage": 1.0,
+    "exchangeFeeAmount": 1.0,
+    "ceypayFeePercentage": 0.5,
+    "ceypayFeeAmount": 0.5,
+    "netAmount": 98.5
+  }
+}
+```
+
+## Step 3: Direct Customer to Payment
+
+You have two options to collect payment:
+
+### Option A: Redirect to Checkout Page
+
+```javascript
+// Redirect user to the checkout link
+window.location.href = response.data.checkoutLink;
+```
+
+### Option B: Display QR Code
+
+```javascript
+// Show QR code for mobile wallet scanning
+<img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(response.data.qrContent)}&size=300x300`} />
+```
+
+## Step 4: Handle Webhook Notifications
+
+Set up a webhook endpoint to receive payment status updates. CeyPay uses **ED25519** signatures for security.
+
+```javascript
+const express = require('express');
+const crypto = require('crypto');
+const app = express();
+
+const CEYPAY_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAs+hotF0u5tdoATwAIezK58lzfMZIoKDTlRgoUU+6Qr4=
+-----END PUBLIC KEY-----`;
+
+// Use raw body for signature verification
+app.use('/webhooks/ceypay', express.raw({ type: 'application/json' }));
+
+app.post('/webhooks/ceypay', (req, res) => {
+  const signature = req.headers['x-webhook-signature'];
+  const timestamp = req.headers['x-webhook-timestamp'];
+  const rawBody = req.body.toString('utf8');
+
+  // Verify signature using ED25519
+  const message = timestamp + rawBody;
+
+  try {
+    const isValid = crypto.verify(
+      null,
+      Buffer.from(message),
+      CEYPAY_PUBLIC_KEY,
+      Buffer.from(signature, 'base64')
+    );
+
+    if (!isValid) {
+      return res.status(401).send('Invalid signature');
+    }
+  } catch (err) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  // Process webhook
+  const payload = JSON.parse(rawBody);
+  if (payload.status === 'PAID') {
+    console.log('Payment successful! Fulfill order:', payload.paymentId);
+  }
+
+  res.status(200).json({ received: true });
+});
+
+app.listen(3000, () => console.log('Webhook server running on port 3000'));
+```
+
+See [webhooks.mdx](./webhooks) for complete webhook integration guide.
+
+## Step 5: Test Your Integration
+
+### Test Webhook Endpoint
+
+```bash
+curl -X POST https://api.ceypay.io/v1/webhooks/test \
+  -H "x-api-key: $API_KEY" \
+  -H "x-timestamp: $TIMESTAMP" \
+  -H "x-signature: $SIGNATURE" \
+  -d '{"webhookUrl": "https://your-app.com/webhooks/ceypay"}'
+```
+
+### Test Payment Flow
+
+1. Create a test payment
+2. Open the checkout link in your browser
+3. Complete the payment (use Bybit test account if available)
+4. Verify webhook is received
+5. Check payment status via API
+
+## Common Use Cases
+
+### E-commerce Checkout
+
+```javascript
+// Create payment from shopping cart
+const payment = await createPayment({
+  amount: cart.total,
+  currency: 'USDT',
+  goods: cart.items.map(item => ({
+    name: item.name,
+    description: item.description
+  })),
+  customerBilling: {
+    email: customer.email,
+    firstName: customer.firstName,
+    lastName: customer.lastName
+  },
+  webhookUrl: 'https://mystore.com/api/webhooks/payment'
+});
+
+// Redirect to checkout
+res.redirect(payment.checkoutLink);
+```
+
+### Payment Link for Products
+
+```javascript
+// Create reusable payment link
+const paymentLink = await createPaymentLink({
+  name: 'Premium Plan - Monthly',
+  description: 'Subscription to premium features',
+  amount: 49.99,
+  currency: 'USDT',
+  reusable: true
+});
+
+// Share the link
+console.log('Payment link:', `https://pay.ceypay.io/${paymentLink.slug}`);
+```
+
+### Invoice Payment
+
+```javascript
+// Create single-use payment link for invoice
+const invoice = await createPaymentLink({
+  name: `Invoice #${invoiceNumber}`,
+  description: 'Web development services',
+  amount: invoiceAmount,
+  currency: 'USDT',
+  reusable: false,
+  expirationDate: '2025-02-28T23:59:59Z'
+});
+
+// Email invoice link to customer
+sendEmail({
+  to: customer.email,
+  subject: `Invoice #${invoiceNumber}`,
+  body: `Pay your invoice: ${invoice.checkoutUrl}`
+});
+```
+
+## Next Steps
+
+### Learn More
+
+- **Authentication**: [authentication](./authentication) - Deep dive into HMAC signature
+- **Webhooks**: [webhooks](./webhooks) - Complete webhook integration guide
+- **Payment Links**: [payment-links](./payment-links) - Guide to using payment links
+- **Error Handling**: [errors](./errors) - Error codes and troubleshooting
+- **Rate Limits**: [rate-limits](./rate-limits) - API rate limiting policies
+
+### Explore API Endpoints
+
+- **Payments**:
+  - `POST /v1/payment` - Create payment
+  - `GET /v1/payment/:id` - Get payment details
+  - `GET /v1/payment` - List payments
+
+- **Payment Links**:
+  - `POST /v1/payment-link` - Create payment link
+  - `GET /v1/payment-link/:id` - Get payment link
+  - `GET /v1/payment-link` - List payment links
+  - `PATCH /v1/payment-link/:id` - Update payment link
+  - `DELETE /v1/payment-link/:id` - Deactivate payment link
+
+- **Webhooks**:
+  - `GET /v1/webhooks/config` - Get webhook configuration
+  - `POST /v1/webhooks/test` - Test webhook delivery
+
+### API Reference
+
+Full API documentation available at: [https://api.ceypay.io/api-docs](https://api.ceypay.io/api-docs)
+
+### Support
+
+- **Email**: support@ceypay.io
+- **Documentation**: https://docs.ceypay.io
+- **Status**: https://status.ceypay.io
+
+## Checklist
+
+Before going live, ensure you:
+
+- [ ] Completed merchant onboarding and KYC
+- [ ] Generated production API key
+- [ ] Stored API key securely (environment variable)
+- [ ] Implemented HMAC signature authentication
+- [ ] Set up webhook endpoint with signature verification
+- [ ] Tested payment flow end-to-end
+- [ ] Implemented error handling
+- [ ] Configured monitoring and logging
+- [ ] Reviewed security best practices
+- [ ] Read rate limiting policies
+
+## Tips
+
+### Security
+- Never commit API keys to version control
+- Use environment variables for secrets
+- Always verify webhook signatures
+- Use HTTPS for all webhook endpoints
+
+### Performance
+- Cache exchange rates when possible
+- Implement idempotent webhook handling
+- Use exponential backoff for retries
+- Monitor rate limit headers
+
+### Testing
+- Use ngrok for local webhook testing
+- Create test payments regularly
+- Monitor webhook delivery logs
+- Set up alerts for failed webhooks

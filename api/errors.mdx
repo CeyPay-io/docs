@@ -1,0 +1,582 @@
+---
+title: "Error Codes Reference"
+description: "Complete guide to all error responses you may encounter when using the CeyPay API, with troubleshooting steps for each."
+---
+
+## Error Response Format
+
+All API errors follow this consistent format:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "error": "Bad Request",
+  "details": [
+    {
+      "field": "amount",
+      "constraint": "min",
+      "message": "amount must be greater than 0"
+    }
+  ]
+}
+```
+
+## HTTP Status Codes
+
+### 2xx Success
+
+#### 200 OK
+Request succeeded (GET, PATCH, DELETE operations).
+
+#### 201 Created
+Resource created successfully (POST operations).
+
+### 4xx Client Errors
+
+#### 400 Bad Request
+
+**Causes:**
+- Invalid request body
+- Validation errors
+- Unsupported payment provider
+- Invalid currency
+
+**Example:**
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "error": "Bad Request",
+  "details": [
+    {
+      "field": "currency",
+      "constraint": "isEnum",
+      "message": "currency must be one of: USDT, LKR"
+    }
+  ]
+}
+```
+
+**Fix:**
+- Check request body matches the API specification
+- Ensure all required fields are provided
+- Validate field types and formats
+- Use supported currencies (USDT, LKR)
+
+---
+
+#### 401 Unauthorized
+
+**Causes:**
+- Invalid API key
+- Expired or revoked API key
+- Invalid HMAC signature
+- Timestamp outside valid window (±5 minutes)
+- Missing authentication headers
+
+**Example - Invalid Signature:**
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid signature",
+  "error": "Unauthorized"
+}
+```
+
+**Fix:**
+1. Verify API key is correct and active
+2. Check signature calculation:
+   ```javascript
+   const message = timestamp + method + path + body;
+   const signature = crypto.createHmac('sha256', secretKey)
+     .update(message)
+     .digest('hex');
+   ```
+3. Ensure timestamp is current (within 5 minutes)
+4. Verify method is uppercase (GET, POST, PATCH, DELETE)
+5. Include query parameters in path if any
+
+**Example - Timestamp Error:**
+```json
+{
+  "statusCode": 401,
+  "message": "Request timestamp outside valid window",
+  "error": "Unauthorized"
+}
+```
+
+**Fix:**
+- Use current timestamp: `Date.now().toString()`
+- Check server clock is synchronized (use NTP)
+- Don't reuse old timestamps
+
+---
+
+#### 403 Forbidden
+
+**Causes:**
+- Accessing resources belonging to another merchant
+- Insufficient permissions
+- Branch access denied
+
+**Example:**
+```json
+{
+  "statusCode": 403,
+  "message": "Payment does not belong to your merchant account",
+  "error": "Forbidden"
+}
+```
+
+**Fix:**
+- Ensure you're requesting your own resources
+- Check merchantId in request matches your account
+- Verify branch access if using branch-specific endpoints
+
+---
+
+#### 404 Not Found
+
+**Causes:**
+- Resource doesn't exist
+- Invalid resource ID
+- Typo in endpoint URL
+
+**Example:**
+```json
+{
+  "statusCode": 404,
+  "message": "Payment with ID 550e8400-... not found",
+  "error": "Not Found"
+}
+```
+
+**Fix:**
+- Verify resource ID is correct
+- Check resource hasn't been deleted
+- Ensure endpoint URL is correct
+
+---
+
+#### 409 Conflict
+
+**Causes:**
+- Duplicate resource
+- Resource state conflict
+- Payment link slug already exists
+
+**Example:**
+```json
+{
+  "statusCode": 409,
+  "message": "Payment link with this slug already exists",
+  "error": "Conflict"
+}
+```
+
+**Fix:**
+- Use a different slug/identifier
+- Check if resource already exists
+- Handle conflict in your application logic
+
+---
+
+#### 410 Gone
+
+**Causes:**
+- Payment link expired
+- Single-use payment link already consumed
+- Resource permanently deleted
+
+**Example:**
+```json
+{
+  "statusCode": 410,
+  "message": "Payment link has expired",
+  "error": "Gone"
+}
+```
+
+**Fix:**
+- Create a new payment link
+- Check expiration dates before use
+- Don't reuse single-use payment links
+
+---
+
+#### 422 Unprocessable Entity
+
+**Causes:**
+- Business logic validation failed
+- Invalid amount (negative, zero, or too large)
+- Custom amount not allowed
+- Amount outside min/max range
+
+**Example:**
+```json
+{
+  "statusCode": 422,
+  "message": "Amount must be between 5 and 10000 USDT",
+  "error": "Unprocessable Entity"
+}
+```
+
+**Fix:**
+- Review business validation rules
+- Check amount constraints
+- Verify custom amount settings
+
+---
+
+#### 429 Too Many Requests
+
+**Causes:**
+- Rate limit exceeded for endpoint
+- Too many requests in time window
+
+**Example:**
+```json
+{
+  "statusCode": 429,
+  "message": "Rate limit exceeded. Maximum 100 requests per minute. Try again in 45 seconds.",
+  "error": "Too Many Requests",
+  "retryAfter": 45
+}
+```
+
+**Headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1640000000
+Retry-After: 45
+```
+
+**Fix:**
+- Wait for the time specified in `retryAfter`
+- Implement exponential backoff
+- Cache responses where appropriate
+- Review [rate-limits](./rate-limits) for limits per endpoint
+
+---
+
+### 5xx Server Errors
+
+#### 500 Internal Server Error
+
+**Causes:**
+- Unexpected server error
+- Database connection issue
+- Service temporarily unavailable
+
+**Example:**
+```json
+{
+  "statusCode": 500,
+  "message": "An unexpected error occurred",
+  "error": "Internal Server Error"
+}
+```
+
+**Fix:**
+- Retry the request with exponential backoff
+- Check [status.ceypay.io](https://status.ceypay.io) for service status
+- Contact support if error persists
+
+---
+
+#### 502 Bad Gateway
+
+**Causes:**
+- Payment provider (Bybit) API failure
+- Upstream service unavailable
+- Network timeout
+
+**Example:**
+```json
+{
+  "statusCode": 502,
+  "message": "Failed to create payment with provider",
+  "error": "Bad Gateway"
+}
+```
+
+**Fix:**
+- Retry the request after a short delay
+- Check payment provider status
+- Contact support if issue persists
+
+---
+
+## Common Error Scenarios
+
+### Validation Errors
+
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "error": "Bad Request",
+  "details": [
+    {
+      "field": "amount",
+      "constraint": "min",
+      "message": "amount must be greater than 0"
+    },
+    {
+      "field": "goods",
+      "constraint": "arrayNotEmpty",
+      "message": "goods must not be empty"
+    },
+    {
+      "field": "customerBilling.email",
+      "constraint": "isEmail",
+      "message": "customerBilling.email must be a valid email"
+    }
+  ]
+}
+```
+
+**How to handle:**
+```javascript
+try {
+  const payment = await createPayment(data);
+} catch (error) {
+  if (error.response?.status === 400 && error.response?.data?.details) {
+    // Display validation errors to user
+    error.response.data.details.forEach(err => {
+      console.error(`${err.field}: ${err.message}`);
+    });
+  }
+}
+```
+
+### Authentication Errors
+
+```javascript
+// Example: Debugging signature issues
+const timestamp = Date.now().toString();
+const method = 'POST';
+const path = '/v1/payments';
+const body = JSON.stringify(paymentData);
+
+console.log('=== Debugging Signature ===');
+console.log('Timestamp:', timestamp);
+console.log('Method:', method);
+console.log('Path:', path);
+console.log('Body:', body);
+
+const message = timestamp + method + path + body;
+console.log('Message to sign:', message);
+
+const signature = crypto
+  .createHmac('sha256', secretKey)
+  .update(message)
+  .digest('hex');
+console.log('Generated signature:', signature);
+
+try {
+  const response = await axios.post(url, JSON.parse(body), {
+    headers: {
+      'x-api-key': apiKey,
+      'x-timestamp': timestamp,
+      'x-signature': signature
+    }
+  });
+} catch (error) {
+  if (error.response?.status === 401) {
+    console.error('Authentication failed:', error.response.data);
+    console.error('Check:');
+    console.error('1. API key is correct and active');
+    console.error('2. Timestamp is current (within 5 minutes)');
+    console.error('3. Signature calculation matches exactly');
+    console.error('4. Method is uppercase');
+  }
+}
+```
+
+### Rate Limit Handling
+
+```javascript
+async function makeApiRequest(url, options, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await axios(url, options);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 429) {
+        const retryAfter = error.response.data.retryAfter || 60;
+        console.log(`Rate limited. Retrying in ${retryAfter} seconds...`);
+        await sleep(retryAfter * 1000);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+```
+
+### Network Error Handling
+
+```javascript
+async function createPaymentWithRetry(data) {
+  const maxRetries = 3;
+  const retryDelay = 1000; // Start with 1 second
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await createPayment(data);
+    } catch (error) {
+      // Retry on network errors and 5xx errors
+      const shouldRetry =
+        !error.response ||
+        (error.response.status >= 500 && error.response.status < 600);
+
+      if (shouldRetry && i < maxRetries - 1) {
+        const delay = retryDelay * Math.pow(2, i); // Exponential backoff
+        console.log(`Request failed. Retrying in ${delay}ms...`);
+        await sleep(delay);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+}
+```
+
+## Error Handling Best Practices
+
+### 1. Always Handle Errors
+
+```javascript
+try {
+  const payment = await createPayment(data);
+  console.log('Payment created:', payment.id);
+} catch (error) {
+  console.error('Failed to create payment:', error.message);
+
+  // Log for debugging
+  if (error.response) {
+    console.error('Status:', error.response.status);
+    console.error('Error:', error.response.data);
+  }
+
+  // Show user-friendly message
+  showErrorToUser('Failed to process payment. Please try again.');
+}
+```
+
+### 2. Implement Retry Logic
+
+```javascript
+const RETRYABLE_STATUS_CODES = [408, 429, 500, 502, 503, 504];
+
+function shouldRetry(error) {
+  return (
+    !error.response ||
+    RETRYABLE_STATUS_CODES.includes(error.response.status)
+  );
+}
+```
+
+### 3. Log Errors with Context
+
+```javascript
+function logError(error, context) {
+  console.error({
+    timestamp: new Date().toISOString(),
+    context,
+    status: error.response?.status,
+    message: error.response?.data?.message || error.message,
+    details: error.response?.data?.details,
+    stack: error.stack
+  });
+}
+
+try {
+  await createPayment(data);
+} catch (error) {
+  logError(error, {
+    operation: 'createPayment',
+    amount: data.amount,
+    currency: data.currency
+  });
+}
+```
+
+### 4. Provide User-Friendly Messages
+
+```javascript
+function getErrorMessage(error) {
+  const status = error.response?.status;
+
+  switch (status) {
+    case 400:
+      return 'Invalid payment information. Please check your details.';
+    case 401:
+      return 'Authentication failed. Please contact support.';
+    case 403:
+      return 'You don\'t have permission to perform this action.';
+    case 404:
+      return 'Payment not found. It may have been deleted.';
+    case 429:
+      return 'Too many requests. Please wait a moment and try again.';
+    case 500:
+    case 502:
+    case 503:
+      return 'Our service is temporarily unavailable. Please try again in a few minutes.';
+    default:
+      return 'An unexpected error occurred. Please try again.';
+  }
+}
+```
+
+### 5. Monitor Error Rates
+
+```javascript
+const errorStats = {
+  total: 0,
+  byStatus: {},
+  byEndpoint: {}
+};
+
+function trackError(error, endpoint) {
+  errorStats.total++;
+
+  const status = error.response?.status || 'network';
+  errorStats.byStatus[status] = (errorStats.byStatus[status] || 0) + 1;
+  errorStats.byEndpoint[endpoint] = (errorStats.byEndpoint[endpoint] || 0) + 1;
+
+  // Alert if error rate is high
+  if (errorStats.total > 100) {
+    console.warn('High error rate detected:', errorStats);
+  }
+}
+```
+
+## Getting Help
+
+If you encounter persistent errors:
+
+1. **Check System Status**: [status.ceypay.io](https://status.ceypay.io)
+2. **Review Documentation**: Ensure you're following the API specification
+3. **Enable Debug Logging**: Log requests, responses, and signatures
+4. **Contact Support**: support@ceypay.io with:
+   - Error message and status code
+   - Request details (endpoint, timestamp, signature)
+   - Steps to reproduce
+   - Logs (remove sensitive data!)
+
+## Related Documentation
+
+- [Authentication Guide](./authentication) - HMAC signature implementation
+- [Webhooks Guide](./webhooks) - Webhook integration and errors
+- [Rate Limits](./rate-limits) - API rate limiting policies
+- [Quick Start](./quickstart) - Getting started guide

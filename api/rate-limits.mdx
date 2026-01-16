@@ -1,0 +1,410 @@
+---
+title: "Rate Limiting"
+description: "CeyPay's API implements rate limiting to ensure fair usage and system stability. Learn about rate limits, headers, and best practices."
+---
+
+## Overview
+
+Rate limits are applied per merchant, per endpoint, with a sliding window algorithm. Each endpoint has its own limit based on expected usage patterns.
+
+## Rate Limits by Endpoint
+
+### Payment Endpoints
+
+| Endpoint | Method | Limit | Window |
+|----------|--------|-------|--------|
+| `/v1/payment` | POST | 100 requests | 1 minute |
+| `/v1/payment/:id` | GET | 300 requests | 1 minute |
+| `/v1/payment/list` | GET | 200 requests | 1 minute |
+
+### Payment Link Endpoints
+
+| Endpoint | Method | Limit | Window |
+|----------|--------|-------|--------|
+| `/v1/payment-link` | POST | 50 requests | 1 minute |
+| `/v1/payment-link/:id` | GET | 100 requests | 1 minute |
+| `/v1/payment-link/list` | GET | 100 requests | 1 minute |
+| `/v1/payment-link/:id` | PATCH | 50 requests | 1 minute |
+| `/v1/payment-link/:id` | DELETE | 50 requests | 1 minute |
+
+## Rate Limit Headers
+
+Every API response includes rate limit information in headers:
+
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640000000
+```
+
+### Header Definitions
+
+- **X-RateLimit-Limit**: Maximum requests allowed in the window
+- **X-RateLimit-Remaining**: Requests remaining in current window
+- **X-RateLimit-Reset**: Unix timestamp when the limit resets
+
+## Rate Limit Exceeded Response
+
+When you exceed the rate limit, you'll receive a 429 response:
+
+```json
+{
+  "statusCode": 429,
+  "message": "Rate limit exceeded. Maximum 100 requests per 60 seconds. Try again in 45 seconds.",
+  "error": "Too Many Requests",
+  "retryAfter": 45
+}
+```
+
+**Additional Headers:**
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1640000000
+Retry-After: 45
+```
+
+## Best Practices
+
+### 1. Monitor Rate Limit Headers
+
+Check headers proactively to avoid hitting limits:
+
+```javascript
+function checkRateLimit(response) {
+  const limit = parseInt(response.headers['x-ratelimit-limit']);
+  const remaining = parseInt(response.headers['x-ratelimit-remaining']);
+  const resetTime = parseInt(response.headers['x-ratelimit-reset']);
+
+  console.log(`Rate limit: ${remaining}/${limit} remaining`);
+
+  // Warn if approaching limit
+  if (remaining < limit * 0.1) {
+    console.warn(`Approaching rate limit! ${remaining} requests remaining`);
+  }
+
+  // Calculate time until reset
+  const now = Math.floor(Date.now() / 1000);
+  const secondsUntilReset = resetTime - now;
+  console.log(`Resets in ${secondsUntilReset} seconds`);
+}
+
+const response = await axios.get('/v1/payments');
+checkRateLimit(response);
+```
+
+### 2. Implement Exponential Backoff
+
+Retry with increasing delays when rate limited:
+
+```javascript
+async function makeRequestWithBackoff(url, options, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await axios(url, options);
+    } catch (error) {
+      if (error.response?.status === 429) {
+        const retryAfter = error.response.data.retryAfter || 60;
+        const backoffTime = Math.min(retryAfter * 1000 * Math.pow(2, i), 60000);
+
+        console.log(`Rate limited. Waiting ${backoffTime}ms before retry ${i + 1}/${maxRetries}`);
+        await sleep(backoffTime);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+```
+
+### 3. Cache Responses
+
+Cache GET responses to reduce API calls:
+
+```javascript
+const cache = new Map();
+const CACHE_TTL = 60000; // 1 minute
+
+async function getCachedPayment(paymentId) {
+  const cacheKey = `payment:${paymentId}`;
+  const cached = cache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log('Returning cached payment');
+    return cached.data;
+  }
+
+  const payment = await getPayment(paymentId);
+
+  cache.set(cacheKey, {
+    data: payment,
+    timestamp: Date.now()
+  });
+
+  return payment;
+}
+```
+
+### 4. Batch Requests
+
+Use list endpoints instead of multiple single-item requests:
+
+```javascript
+// ❌ Bad: Multiple requests
+async function getMultiplePayments(paymentIds) {
+  const promises = paymentIds.map(id => getPayment(id));
+  return Promise.all(promises); // 100 requests if 100 IDs!
+}
+
+// ✅ Good: Single list request
+async function getMultiplePayments(paymentIds) {
+  const response = await listPayments({
+    page: 1,
+    pageSize: 100
+  });
+  return response.data.filter(p => paymentIds.includes(p.id));
+}
+```
+
+### 5. Request Queuing
+
+Queue requests to stay within rate limits:
+
+```javascript
+class RateLimiter {
+  constructor(maxRequests, windowMs) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+    this.queue = [];
+    this.requests = [];
+  }
+
+  async execute(fn) {
+    // Remove old requests outside window
+    const now = Date.now();
+    this.requests = this.requests.filter(t => now - t < this.windowMs);
+
+    // Wait if at limit
+    if (this.requests.length >= this.maxRequests) {
+      const oldestRequest = this.requests[0];
+      const waitTime = this.windowMs - (now - oldestRequest);
+      await sleep(waitTime);
+    }
+
+    // Execute request
+    this.requests.push(Date.now());
+    return fn();
+  }
+}
+
+// Usage
+const limiter = new RateLimiter(100, 60000); // 100 req/min
+
+async function createPaymentSafely(data) {
+  return limiter.execute(() => createPayment(data));
+}
+```
+
+### 6. Parallel Request Management
+
+Limit concurrent requests:
+
+```javascript
+async function processPaymentsInBatches(paymentData, batchSize = 10) {
+  const results = [];
+
+  for (let i = 0; i < paymentData.length; i += batchSize) {
+    const batch = paymentData.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(data => createPayment(data))
+    );
+    results.push(...batchResults);
+
+    // Small delay between batches
+    if (i + batchSize < paymentData.length) {
+      await sleep(1000);
+    }
+  }
+
+  return results;
+}
+```
+
+## Rate Limit Strategies by Use Case
+
+### High-Volume Integration
+
+For applications with high request volumes:
+
+```javascript
+class ApiClient {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+    this.limiter = new RateLimiter(100, 60000);
+    this.cache = new Map();
+  }
+
+  async getPayment(id) {
+    // Check cache first
+    const cached = this.getCached(`payment:${id}`);
+    if (cached) return cached;
+
+    // Execute with rate limiting
+    const payment = await this.limiter.execute(() =>
+      this.makeRequest(`/v1/payments/${id}`)
+    );
+
+    // Cache result
+    this.setCache(`payment:${id}`, payment, 60000);
+    return payment;
+  }
+
+  getCached(key) {
+    const item = this.cache.get(key);
+    if (item && Date.now() - item.timestamp < item.ttl) {
+      return item.data;
+    }
+    return null;
+  }
+
+  setCache(key, data, ttl) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+  }
+}
+```
+
+## Monitoring Rate Limits
+
+### Track Usage
+
+```javascript
+class RateLimitMonitor {
+  constructor() {
+    this.metrics = {
+      totalRequests: 0,
+      rateLimitedRequests: 0,
+      requestsByEndpoint: {},
+      remainingByEndpoint: {}
+    };
+  }
+
+  recordRequest(endpoint, response) {
+    this.metrics.totalRequests++;
+
+    if (!this.metrics.requestsByEndpoint[endpoint]) {
+      this.metrics.requestsByEndpoint[endpoint] = 0;
+    }
+    this.metrics.requestsByEndpoint[endpoint]++;
+
+    const remaining = parseInt(response.headers['x-ratelimit-remaining']);
+    this.metrics.remainingByEndpoint[endpoint] = remaining;
+  }
+
+  recordRateLimit(endpoint) {
+    this.metrics.rateLimitedRequests++;
+  }
+
+  getReport() {
+    return {
+      ...this.metrics,
+      rateLimitPercentage: (
+        (this.metrics.rateLimitedRequests / this.metrics.totalRequests) * 100
+      ).toFixed(2) + '%'
+    };
+  }
+}
+
+const monitor = new RateLimitMonitor();
+```
+
+### Alert on High Usage
+
+```javascript
+function checkRateLimitHealth(response, endpoint) {
+  const limit = parseInt(response.headers['x-ratelimit-limit']);
+  const remaining = parseInt(response.headers['x-ratelimit-remaining']);
+  const usage = ((limit - remaining) / limit) * 100;
+
+  if (usage > 80) {
+    console.warn(`⚠️ High rate limit usage for ${endpoint}: ${usage.toFixed(1)}%`);
+    // Send alert to monitoring system
+    sendAlert({
+      type: 'rate_limit_warning',
+      endpoint,
+      usage,
+      remaining
+    });
+  }
+}
+```
+
+## Increasing Rate Limits
+
+Default rate limits accommodate most use cases. If you need higher limits:
+
+1. **Email**: support@ceypay.io
+2. **Include**:
+   - Your merchant ID
+   - Current usage patterns
+   - Required rate limit
+   - Use case description
+   - Expected request volume
+
+We'll review your request and may grant higher limits based on your needs.
+
+## FAQ
+
+### What happens if I exceed the rate limit?
+
+You'll receive a 429 response. Wait for the time specified in `retryAfter` (or use the `X-RateLimit-Reset` header) before making new requests.
+
+### Are rate limits per API key or per merchant?
+
+Rate limits are per merchant. All API keys for a merchant share the same rate limit pool.
+
+### Do rate limits reset exactly every minute?
+
+No. Rate limits use a sliding window algorithm. The window moves continuously, not in fixed 1-minute blocks.
+
+### Can I check my rate limit without making a request?
+
+No, but you can make a lightweight GET request and check the headers:
+
+```javascript
+const response = await axios.get('/v1/webhooks/config');
+console.log('Rate limit:', response.headers['x-ratelimit-remaining']);
+```
+
+### Do failed requests count toward rate limits?
+
+Yes. All requests (successful or failed) count toward your rate limit.
+
+### Are webhook deliveries rate limited?
+
+No. Outgoing webhooks from CeyPay to your endpoint are not rate limited (but they have a retry policy).
+
+### What about burst traffic?
+
+The sliding window algorithm allows for short bursts. For example, with a 100 req/min limit, you could make 100 requests immediately, but then you'd need to wait ~1 minute before making more.
+
+## Related Documentation
+
+- [Error Codes](./errors) - Handling 429 errors
+- [Authentication](./authentication) - API authentication
+- [Quick Start](./quickstart) - Getting started
+- [Webhooks](./webhooks) - Webhook integration
+
+## Support
+
+Need help with rate limiting?
+- Email: support@ceypay.io
+- Documentation: https://docs.ceypay.io
