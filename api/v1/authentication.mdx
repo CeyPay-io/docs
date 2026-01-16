@@ -1,30 +1,45 @@
 ---
 title: "API Authentication"
 description: "Learn how CeyPay's HMAC-SHA256 signature authentication secures API communication between your application and our servers."
+mode: "api"
 ---
 
 ## Overview
 
 Every API request must include three headers:
 
-- `x-api-key`: Your API key ID only (format: `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature of the request
+<CardGroup cols={3}>
+  <Card title="x-api-key" icon="key">
+    Your API key ID only (format: `ak_live_xxx`)
+  </Card>
+  <Card title="x-timestamp" icon="clock">
+    Current Unix timestamp in milliseconds
+  </Card>
+  <Card title="x-signature" icon="signature">
+    HMAC-SHA256 signature of the request
+  </Card>
+</CardGroup>
 
-**Important**: The `x-api-key` header should contain ONLY the key ID, NOT the full API key. The secret key is never transmitted over the wire.
+<Warning>
+  The `x-api-key` header should contain ONLY the key ID, NOT the full API key. The secret key is never transmitted over the wire.
+</Warning>
 
 ## Getting Your API Key
 
-1. Log in to your CeyPay dashboard
-2. Navigate to **Settings** > **API Keys**
-3. Click **Generate API Key**
-4. Copy the complete API key (you'll only see it once!)
-5. Store it securely (treat it like a password)
+<Steps>
+  <Step title="Log in to your CeyPay dashboard" />
+  <Step title="Navigate to Settings > API Keys" />
+  <Step title="Click Generate API Key" />
+  <Step title="Copy the complete API key (you'll only see it once!)" />
+  <Step title="Store it securely (treat it like a password)" />
+</Steps>
 
-**API Key Format**: `ak_live_abc123.sk_live_xyz789`
+<Info>
+  **API Key Format**: `ak_live_abc123.sk_live_xyz789`
 
-- First part (`ak_live_abc123`): Public key ID - sent in `x-api-key` header
-- Second part (`sk_live_xyz789`): Secret key - used locally to derive signing key, NEVER transmitted
+  - First part (`ak_live_abc123`): Public key ID - sent in `x-api-key` header
+  - Second part (`sk_live_xyz789`): Secret key - used locally to derive signing key, NEVER transmitted
+</Info>
 
 ## Signature Calculation
 
@@ -53,9 +68,9 @@ This design ensures your secret key is **never transmitted** over the network:
 
 ## Implementation Examples
 
-### Node.js
+<CodeGroup>
 
-```javascript
+```javascript Node.js
 const crypto = require('crypto');
 
 // Your full API key (store securely, e.g., in environment variables)
@@ -98,9 +113,7 @@ const response = await axios.post('https://api.ceypay.io/v1/payment', body, {
 });
 ```
 
-### Python
-
-```python
+```python Python
 import hmac
 import hashlib
 import time
@@ -148,9 +161,7 @@ response = requests.post(
 )
 ```
 
-### PHP
-
-```php
+```php PHP
 <?php
 
 // Your full API key (store securely)
@@ -198,9 +209,7 @@ curl_close($ch);
 ?>
 ```
 
-### Ruby
-
-```ruby
+```ruby Ruby
 require 'openssl'
 require 'json'
 require 'net/http'
@@ -245,6 +254,8 @@ request.body = body
 
 response = http.request(request)
 ```
+
+</CodeGroup>
 
 ## Common Mistakes & Troubleshooting
 
@@ -448,6 +459,14 @@ X-RateLimit-Reset: 1640000000
 
 ## Need Help?
 
-- Check the [Quick Start Guide](./quickstart.md)
-- Review [Error Codes](./errors.md)
-- Contact support: support@ceypay.io
+<CardGroup cols={3}>
+  <Card title="Quick Start Guide" icon="rocket" href="/api/v1/quickstart">
+    Get started with your first payment in minutes
+  </Card>
+  <Card title="Error Codes" icon="circle-exclamation" href="/api/v1/errors">
+    Understand and troubleshoot API errors
+  </Card>
+  <Card title="Contact Support" icon="headset" href="mailto:support@ceypay.io">
+    Reach out to our team for assistance
+  </Card>
+</CardGroup>

@@ -1,44 +1,48 @@
 ---
 title: "Introduction"
 description: "Accept digital currency. Get paid in Sri Lankan Rupees."
+mode: "wide"
 ---
 
 <img
-  className="block dark:hidden"
-  src="/images/hero-light.png"
+  src="/images/introduction cover.png"
   alt="CeyPay Payment Gateway"
-/>
-
-<img
-  className="hidden dark:block"
-  src="/images/hero-dark.png"
-  alt="CeyPay Payment Gateway"
+  style={{ borderRadius: "16px" }}
 />
 
 ## Accept digital currency. Get paid in Sri Lankan Rupees.
 
 **No wallets. No crypto knowledge. No extra steps.**
 
-CeyPay is the payment gateway that bridges the gap between cryptocurrency and traditional banking. Your customers pay in USDT or crypto—you receive LKR straight into your bank account.
+CeyPay is the payment gateway that bridges the gap between cryptocurrency and traditional banking. Your customers pay in USDT or crypto, and you receive LKR straight into your bank account.
 
 <CardGroup cols={3}>
-  <Card title="Native Crypto Audience" icon="users">
-    Tap into our passionate crypto-ready community. Reach more customers online
-    and offline.
+  <Card title="Reach new customers" icon="users">
+    Tap into a fast-growing audience that prefers paying and getting paid in
+    digital currency.
   </Card>
-  <Card title="Lowest Transaction Fees" icon="chart-line">
-    We grow when you grow. Low transaction fees means more profits for your
-    business.
+  <Card title="Save on fees" icon="chart-line">
+    Cut down payment processing costs compared to traditional card rails.
   </Card>
-  <Card title="50+ Cryptocurrencies" icon="coins">
-    Accept payments in USDT, Bitcoin, Ethereum, and over 50 other
-    cryptocurrencies and stablecoins.
+  <Card title="Go global" icon="globe">
+    Accept payments from anywhere in the world with no borders or banking
+    restrictions.
+  </Card>
+  <Card title="24/7 near-instant settlement" icon="clock">
+    Pay and get paid without weekend delays or banking downtime.
+  </Card>
+  <Card title="50+ new payment options" icon="coins">
+    Accept Bitcoin, Ethereum, USDT, USDC and top crypto assets used by global
+    customers.
+  </Card>
+  <Card title="Forget about chargebacks" icon="shield-check">
+    Crypto payments are irreversible, eliminating fraud and chargeback risks.
   </Card>
 </CardGroup>
 
 ## What is CeyPay?
 
-CeyPay is a comprehensive cryptocurrency payment platform built for Sri Lankan businesses. We make accepting crypto payments as simple as accepting cash—customers pay with their preferred digital currency, and you receive Sri Lankan Rupees directly in your bank account.
+CeyPay is a comprehensive cryptocurrency payment platform built for Sri Lankan businesses. We make accepting crypto payments as simple as accepting cash. Customers pay with their preferred digital currency, and you receive Sri Lankan Rupees directly in your bank account.
 
 **Powered by leading crypto platforms:**
 
@@ -52,16 +56,16 @@ CeyPay is a comprehensive cryptocurrency payment platform built for Sri Lankan b
 
 <Note>
   CeyPay integrates with major crypto wallets and blockchain networks including
-  Binance Pay, Bybit, Bitazza, and Solana.
+  Binance Pay, Bybit, and Solana.
 </Note>
 
 ## WordPress Plugin for WooCommerce
 
-This documentation covers the **CeyPay WordPress Plugin**—the easiest way to accept cryptocurrency payments on your WooCommerce store.
+This documentation covers the **CeyPay WordPress Plugin**, the easiest way to accept cryptocurrency payments on your WooCommerce store.
 
 With just a few clicks, you can:
 
-- ✅ Accept payments from Binance Pay, Bybit, and Bitazza
+- ✅ Accept payments from Binance Pay and Bybit Pay
 - ✅ Automatically convert crypto to LKR
 - ✅ Receive instant payment notifications
 - ✅ Provide a seamless checkout experience
@@ -71,20 +75,61 @@ With just a few clicks, you can:
 
 ## Supported Payment Providers
 
-<div style={{ display: "flex", justifyContent: "center", margin: "10px 0" }}>
-  <img
-    src="/images/ceypay-providers.png"
-    alt="CeyPay Payment Providers"
-    style={{ maxWidth: "100%", height: "auto" }}
-  />
-</div>
+<CardGroup cols={3}>
+  <Card>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+      }}
+    >
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+  <Card>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+      }}
+    >
+      <img
+        className="block dark:hidden"
+        src="/images/BinancePay.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BinancePay-Dark.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+</CardGroup>
 
 ## Key Features
 
 <CardGroup cols={2}>
   <Card title="Multi-Provider Support" icon="wallet">
-    Accept payments from Binance Pay, Bybit, and Bitazza. Customers choose their
-    preferred crypto wallet at checkout.
+    Accept payments from Binance Pay and Bybit. Customers choose their preferred
+    crypto wallet at checkout.
   </Card>
   <Card title="Real-Time Verification" icon="bolt">
     Payments are verified in real-time through webhooks and polling, ensuring
@@ -114,7 +159,7 @@ With just a few clicks, you can:
   </Step>
   <Step title="Choose Crypto Provider">
     A modal appears where the customer selects their preferred crypto wallet
-    (Binance, Bybit, or Bitazza).
+    (Binance or Bybit).
   </Step>
   <Step title="Scan QR Code">
     A QR code is generated for the selected provider. On mobile, a deep link
@@ -140,8 +185,8 @@ https://yoursite.com/?wc-api=WC_Gateway_CeyPay
 
 <Tip>
   This endpoint is automatically configured by the plugin. All payment
-  confirmations from Binance Pay, Bybit, and Bitazza are securely delivered to
-  this URL with HMAC-SHA256 signature verification.
+  confirmations from Binance Pay and Bybit are securely delivered to this URL
+  with HMAC-SHA256 signature verification.
 </Tip>
 
 ## Requirements
@@ -163,7 +208,7 @@ Before installing CeyPay, ensure your environment meets these requirements:
 
 ## Quick Links
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Quickstart Guide" icon="rocket" href="/wordpress/quickstart">
     Get CeyPay installed and configured in minutes.
   </Card>

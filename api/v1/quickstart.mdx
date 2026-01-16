@@ -1,38 +1,55 @@
 ---
 title: "Quick Start Guide"
 description: "Get started with the CeyPay API in minutes. This guide walks you through creating your first payment."
+mode: "api"
 ---
+
+<Note>
+  This guide walks you through creating your first payment in under 5 minutes.
+</Note>
 
 ## Prerequisites
 
-- A CeyPay merchant account ([sign up here](https://merchant.ceypay.io))
-- Completed merchant onboarding and KYC verification
-- Your preferred programming language (Node.js, Python, PHP, etc.)
+<CardGroup cols={3}>
+  <Card title="Merchant Account" icon="user-check">
+    A CeyPay merchant account ([sign up here](https://merchant.ceypay.io))
+  </Card>
+  <Card title="KYC Verification" icon="id-card">
+    Completed merchant onboarding and KYC verification
+  </Card>
+  <Card title="Programming Language" icon="code">
+    Your preferred programming language (Node.js, Python, PHP, etc.)
+  </Card>
+</CardGroup>
 
-## Step 1: Generate API Key
+---
 
-1. Log in to your [CeyPay Dashboard](https://merchant.ceypay.io)
-2. Navigate to **Settings** → **API Keys**
-3. Click **Generate New API Key**
-4. Give it a descriptive name (e.g., "Production API Key")
-5. **Copy the API key immediately** (you'll only see it once!)
+## Get Started
 
-Your API key looks like: `ak_live_abc123xyz.sk_live_def456uvw`
+<Steps>
+  <Step title="Generate API Key">
+    1. Log in to your [CeyPay Dashboard](https://merchant.ceypay.io)
+    2. Navigate to **Settings** → **API Keys**
+    3. Click **Generate New API Key**
+    4. Give it a descriptive name (e.g., "Production API Key")
+    5. **Copy the API key immediately** (you'll only see it once!)
 
-- `ak_live_abc123xyz` - Public key ID (sent in `x-api-key` header)
-- `sk_live_def456uvw` - Secret key (used locally to derive signing key, NEVER transmitted)
+    Your API key looks like: `ak_live_abc123xyz.sk_live_def456uvw`
 
-**Important**: Store your API key securely (environment variable, secrets manager, etc.)
+    - `ak_live_abc123xyz` - Public key ID (sent in `x-api-key` header)
+    - `sk_live_def456uvw` - Secret key (used locally to derive signing key, NEVER transmitted)
 
-## Step 2: Make Your First API Call
+    **Important**: Store your API key securely (environment variable, secrets manager, etc.)
+  </Step>
 
-### Create a Payment
+  <Step title="Make Your First API Call">
+    ### Create a Payment
 
-Let's create a simple payment for $100 USDT:
+    Let's create a simple payment for $100 USDT:
 
-#### Node.js
+    <CodeGroup>
 
-```javascript
+```javascript Node.js
 const crypto = require('crypto');
 const axios = require('axios');
 
@@ -96,9 +113,7 @@ async function createPayment() {
 createPayment().catch(console.error);
 ```
 
-#### Python
-
-```python
+```python Python
 import os
 import hmac
 import hashlib
@@ -165,9 +180,7 @@ if __name__ == '__main__':
     create_payment()
 ```
 
-#### cURL
-
-```bash
+```bash cURL
 #!/bin/bash
 
 # Your API key
@@ -213,50 +226,61 @@ curl -X POST "https://api.ceypay.io${PATH}" \
   -d "$BODY"
 ```
 
-### Response
+    </CodeGroup>
 
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "payId": "bybit_pay_abc123",
-  "merchantTradeNo": "TXN-2025-12345",
-  "amount": 100,
-  "currency": "USDT",
-  "status": "INITIATED",
-  "qrContent": "bybit://pay?id=abc123",
-  "checkoutLink": "https://checkout.bybit.com/pay/abc123",
-  "createdAt": "2025-01-15T10:30:00.000Z",
-  "feeBreakdown": {
-    "exchangeFeePercentage": 1.0,
-    "exchangeFeeAmount": 1.0,
-    "ceypayFeePercentage": 0.5,
-    "ceypayFeeAmount": 0.5,
-    "netAmount": 98.5
-  }
-}
-```
+    ### Response
 
-## Step 3: Direct Customer to Payment
+    ```json
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "payId": "bybit_pay_abc123",
+      "merchantTradeNo": "TXN-2025-12345",
+      "amount": 100,
+      "currency": "USDT",
+      "status": "INITIATED",
+      "qrContent": "bybit://pay?id=abc123",
+      "checkoutLink": "https://checkout.bybit.com/pay/abc123",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "feeBreakdown": {
+        "exchangeFeePercentage": 1.0,
+        "exchangeFeeAmount": 1.0,
+        "ceypayFeePercentage": 0.5,
+        "ceypayFeeAmount": 0.5,
+        "netAmount": 98.5
+      }
+    }
+    ```
 
-You have two options to collect payment:
+    <Tip>
+      Save the `id` and `qrContent` from the response. You'll need them to direct customers to payment.
+    </Tip>
+  </Step>
 
-### Option A: Redirect to Checkout Page
+  <Step title="Direct Customer to Payment">
+    You have two options to collect payment:
 
-```javascript
-// Redirect user to the checkout link
-window.location.href = response.data.checkoutLink;
-```
+    <CardGroup cols={1}>
+      <Card title="Redirect to Checkout" icon="arrow-up-right-from-square">
+        Redirect users to the hosted checkout page:
 
-### Option B: Display QR Code
+        ```javascript
+        // Redirect user to the checkout link
+        window.location.href = response.data.checkoutLink;
+        ```
+      </Card>
+      <Card title="Display QR Code" icon="qrcode">
+        Show a QR code for mobile wallet scanning:
 
-```javascript
-// Show QR code for mobile wallet scanning
-<img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(response.data.qrContent)}&size=300x300`} />
-```
+        ```javascript
+        // Show QR code for mobile wallet scanning
+        <img src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(response.data.qrContent)}&size=300x300`} />
+        ```
+      </Card>
+    </CardGroup>
+  </Step>
 
-## Step 4: Handle Webhook Notifications
-
-Set up a webhook endpoint to receive payment status updates. CeyPay uses **ED25519** signatures for security.
+  <Step title="Handle Webhook Notifications">
+    Set up a webhook endpoint to receive payment status updates. CeyPay uses **ED25519** signatures for security.
 
 ```javascript
 const express = require('express');
@@ -305,7 +329,9 @@ app.post('/webhooks/ceypay', (req, res) => {
 app.listen(3000, () => console.log('Webhook server running on port 3000'));
 ```
 
-See [webhooks.md](./webhooks.md) for complete webhook integration guide.
+    See [webhooks.md](./webhooks.md) for complete webhook integration guide.
+  </Step>
+</Steps>
 
 ## Step 5: Test Your Integration
 
@@ -329,11 +355,13 @@ curl -X POST https://api.ceypay.io/v1/webhooks/test \
 
 ### Test Payment Flow
 
-1. Create a test payment
-2. Open the checkout link in your browser
-3. Complete the payment (use Bybit test account if available)
-4. Verify webhook is received
-5. Check payment status via API
+<Steps>
+  <Step title="Create a test payment" />
+  <Step title="Open the checkout link in your browser" />
+  <Step title="Complete the payment (use Bybit test account if available)" />
+  <Step title="Verify webhook is received" />
+  <Step title="Check payment status via API" />
+</Steps>
 
 ## Common Use Cases
 
@@ -401,29 +429,41 @@ sendEmail({
 
 ### Learn More
 
-- **Authentication**: [authentication.md](./authentication.md) - Deep dive into HMAC signature
-- **Webhooks**: [webhooks.md](./webhooks.md) - Complete webhook integration guide
-- **Payment Links**: [payment-links.md](./payment-links.md) - Guide to using payment links
-- **Error Handling**: [errors.md](./errors.md) - Error codes and troubleshooting
-- **Rate Limits**: [rate-limits.md](./rate-limits.md) - API rate limiting policies
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/v1/authentication">
+    Deep dive into HMAC signature
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api/v1/webhooks">
+    Complete webhook integration guide
+  </Card>
+  <Card title="Payment Links" icon="link" href="/api/v1/payment-links">
+    Guide to using payment links
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/api/v1/errors">
+    Error codes and troubleshooting
+  </Card>
+  <Card title="Rate Limits" icon="gauge-high" href="/api/v1/rate-limits">
+    API rate limiting policies
+  </Card>
+</CardGroup>
 
 ### Explore API Endpoints
 
-- **Payments**:
-  - `POST /v1/payment` - Create payment
-  - `GET /v1/payment/:id` - Get payment details
-  - `GET /v1/payment` - List payments
+**Payments**:
+  - `POST` `/v1/payment` - Create payment
+  - `GET` `/v1/payment/:id` - Get payment details
+  - `GET` `/v1/payment` - List payments
 
-- **Payment Links**:
-  - `POST /v1/payment-link` - Create payment link
-  - `GET /v1/payment-link/:id` - Get payment link
-  - `GET /v1/payment-link` - List payment links
-  - `PATCH /v1/payment-link/:id` - Update payment link
-  - `DELETE /v1/payment-link/:id` - Deactivate payment link
+**Payment Links**:
+  - `POST` `/v1/payment-link` - Create payment link
+  - `GET` `/v1/payment-link/:id` - Get payment link
+  - `GET` `/v1/payment-link` - List payment links
+  - `PATCH` `/v1/payment-link/:id` - Update payment link
+  - `DELETE` `/v1/payment-link/:id` - Deactivate payment link
 
-- **Webhooks**:
-  - `GET /v1/webhooks/config` - Get webhook configuration
-  - `POST /v1/webhooks/test` - Test webhook delivery
+**Webhooks**:
+  - `GET` `/v1/webhooks/config` - Get webhook configuration
+  - `POST` `/v1/webhooks/test` - Test webhook delivery
 
 ### API Reference
 
