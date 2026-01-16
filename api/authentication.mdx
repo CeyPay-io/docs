@@ -1,0 +1,365 @@
+---
+title: "API Authentication"
+description: "Learn how CeyPay's HMAC-SHA256 signature authentication secures API communication between your application and our servers."
+---
+
+## Overview
+
+Every API request must include three headers:
+
+- `x-api-key`: Your API key (format: `ak_live_xxx.sk_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature of the request
+
+## Getting Your API Key
+
+1. Log in to your CeyPay dashboard
+2. Navigate to **Settings** > **API Keys**
+3. Click **Generate API Key**
+4. Copy the complete API key (you'll only see it once!)
+5. Store it securely (treat it like a password)
+
+**API Key Format**: `ak_live_abc123.sk_live_xyz789`
+
+- First part (`ak_live_abc123`): Public key ID
+- Second part (`sk_live_xyz789`): Secret key (keep this private!)
+
+## Signature Calculation
+
+The signature is calculated by creating an HMAC-SHA256 hash of a message composed of:
+
+```
+message = timestamp + method + path + body
+signature = HMAC-SHA256(message, secret_key)
+```
+
+### Components:
+
+1. **timestamp**: Unix timestamp in milliseconds (same value as `x-timestamp` header)
+2. **method**: HTTP method in UPPERCASE (`GET`, `POST`, `PATCH`, `DELETE`)
+3. **path**: Full request path including query parameters (e.g., `/v1/payments?page=1`)
+4. **body**: Request body as JSON string (empty string for GET/DELETE requests)
+
+## Implementation Examples
+
+### Node.js
+
+```javascript
+const crypto = require('crypto');
+
+function generateSignature(timestamp, method, path, body, secretKey) {
+  const message = timestamp + method + path + body;
+  const signature = crypto
+    .createHmac('sha256', secretKey)
+    .update(message)
+    .digest('hex');
+  return signature;
+}
+
+// Example: POST /v1/payments
+const timestamp = Date.now().toString();
+const method = 'POST';
+const path = '/v1/payments';
+const body = JSON.stringify({
+  amount: 100,
+  currency: 'USDT',
+  goods: [{ name: 'Product', description: 'Test product' }]
+});
+const secretKey = 'sk_live_xyz789...'; // Extract from your API key
+
+const signature = generateSignature(timestamp, method, path, body, secretKey);
+
+// Make the request
+const axios = require('axios');
+const response = await axios.post('https://api.ceypay.io/v1/payments', body, {
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': 'ak_live_abc123.sk_live_xyz789',
+    'x-timestamp': timestamp,
+    'x-signature': signature
+  }
+});
+```
+
+### Python
+
+```python
+import hmac
+import hashlib
+import time
+import json
+import requests
+
+def generate_signature(timestamp, method, path, body, secret_key):
+    message = f"{timestamp}{method}{path}{body}"
+    signature = hmac.new(
+        secret_key.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return signature
+
+# Example: POST /v1/payments
+timestamp = str(int(time.time() * 1000))
+method = 'POST'
+path = '/v1/payments'
+body_dict = {
+    'amount': 100,
+    'currency': 'USDT',
+    'goods': [{'name': 'Product', 'description': 'Test product'}]
+}
+body = json.dumps(body_dict)
+secret_key = 'sk_live_xyz789...'  # Extract from your API key
+
+signature = generate_signature(timestamp, method, path, body, secret_key)
+
+# Make the request
+response = requests.post(
+    'https://api.ceypay.io/v1/payments',
+    json=body_dict,
+    headers={
+        'x-api-key': 'ak_live_abc123.sk_live_xyz789',
+        'x-timestamp': timestamp,
+        'x-signature': signature
+    }
+)
+```
+
+### PHP
+
+```php
+<?php
+
+function generateSignature($timestamp, $method, $path, $body, $secretKey) {
+    $message = $timestamp . $method . $path . $body;
+    $signature = hash_hmac('sha256', $message, $secretKey);
+    return $signature;
+}
+
+// Example: POST /v1/payments
+$timestamp = (string)(time() * 1000);
+$method = 'POST';
+$path = '/v1/payments';
+$bodyArray = [
+    'amount' => 100,
+    'currency' => 'USDT',
+    'goods' => [
+        ['name' => 'Product', 'description' => 'Test product']
+    ]
+];
+$body = json_encode($bodyArray);
+$secretKey = 'sk_live_xyz789...'; // Extract from your API key
+
+$signature = generateSignature($timestamp, $method, $path, $body, $secretKey);
+
+// Make the request
+$ch = curl_init('https://api.ceypay.io/v1/payments');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'x-api-key: ak_live_abc123.sk_live_xyz789',
+    'x-timestamp: ' . $timestamp,
+    'x-signature: ' . $signature
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+?>
+```
+
+### Ruby
+
+```ruby
+require 'openssl'
+require 'json'
+require 'net/http'
+require 'uri'
+
+def generate_signature(timestamp, method, path, body, secret_key)
+  message = "#{timestamp}#{method}#{path}#{body}"
+  OpenSSL::HMAC.hexdigest('SHA256', secret_key, message)
+end
+
+# Example: POST /v1/payments
+timestamp = (Time.now.to_f * 1000).to_i.to_s
+method = 'POST'
+path = '/v1/payments'
+body_hash = {
+  amount: 100,
+  currency: 'USDT',
+  goods: [{ name: 'Product', description: 'Test product' }]
+}
+body = body_hash.to_json
+secret_key = 'sk_live_xyz789...' # Extract from your API key
+
+signature = generate_signature(timestamp, method, path, body, secret_key)
+
+# Make the request
+uri = URI('https://api.ceypay.io/v1/payments')
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::Post.new(uri.path)
+request['Content-Type'] = 'application/json'
+request['x-api-key'] = 'ak_live_abc123.sk_live_xyz789'
+request['x-timestamp'] = timestamp
+request['x-signature'] = signature
+request.body = body
+
+response = http.request(request)
+```
+
+## Common Mistakes & Troubleshooting
+
+### 1. Incorrect Timestamp Format
+
+❌ **Wrong**: Using seconds instead of milliseconds
+```javascript
+const timestamp = Math.floor(Date.now() / 1000); // Wrong!
+```
+
+✅ **Correct**: Use milliseconds
+```javascript
+const timestamp = Date.now().toString(); // Correct!
+```
+
+### 2. Incorrect Message Concatenation
+
+❌ **Wrong**: Adding spaces or separators
+```javascript
+const message = `${timestamp} ${method} ${path} ${body}`; // Wrong!
+```
+
+✅ **Correct**: Direct concatenation with no separators
+```javascript
+const message = timestamp + method + path + body; // Correct!
+```
+
+### 3. Query Parameters in Path
+
+For GET requests with query parameters, include them in the path:
+
+✅ **Correct**:
+```javascript
+const path = '/v1/payments?page=2&pageSize=50';
+const body = ''; // Empty for GET requests
+const message = timestamp + 'GET' + path + body;
+```
+
+### 4. JSON Body Formatting
+
+Ensure the body is stringified exactly as sent in the request:
+
+✅ **Correct**:
+```javascript
+const bodyObject = { amount: 100, currency: 'USDT', goods: [...] };
+const bodyString = JSON.stringify(bodyObject);
+
+// Use bodyString for both signature and request body
+const signature = generateSignature(timestamp, method, path, bodyString, secretKey);
+```
+
+### 5. Timestamp Expiration
+
+Timestamps are valid for **5 minutes**. If you get a timestamp error:
+
+- Ensure your server's clock is synchronized (use NTP)
+- Generate the timestamp immediately before making the request
+- Don't reuse old timestamps
+
+## Security Best Practices
+
+1. **Never expose your secret key**
+   - Don't commit it to version control
+   - Use environment variables
+   - Rotate keys if compromised
+
+2. **Use HTTPS only**
+   - Never send API requests over HTTP
+   - Validate SSL certificates
+
+3. **Implement timestamp validation**
+   - Reject requests with timestamps older than 5 minutes
+   - Prevents replay attacks
+
+4. **Log signature failures**
+   - Monitor for unusual patterns
+   - Could indicate attempted attacks
+
+5. **Rotate API keys periodically**
+   - Recommended: Every 90 days
+   - Immediately if compromised
+
+## Testing Your Implementation
+
+Use the webhook test endpoint to verify your signature calculation:
+
+```bash
+curl -X POST https://api.ceypay.io/v1/webhooks/test \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123.sk_live_xyz789" \
+  -H "x-timestamp: 1640000000000" \
+  -H "x-signature: abc123..." \
+  -d '{"webhookUrl": "https://your-app.com/webhook"}'
+```
+
+If you get a 401 Unauthorized, check:
+1. API key format (should include both parts)
+2. Timestamp is current (within 5 minutes)
+3. Signature calculation matches exactly
+4. HTTP method is uppercase
+5. Path includes query parameters if any
+
+## Error Responses
+
+### 401 Unauthorized - Invalid Signature
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid signature",
+  "error": "Unauthorized"
+}
+```
+
+**Fix**: Verify your signature calculation matches the examples above.
+
+### 401 Unauthorized - Timestamp Outside Valid Window
+```json
+{
+  "statusCode": 401,
+  "message": "Request timestamp outside valid window",
+  "error": "Unauthorized"
+}
+```
+
+**Fix**: Ensure timestamp is current (within 5 minutes) and in milliseconds.
+
+### 401 Unauthorized - Invalid API Key
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid or inactive API key",
+  "error": "Unauthorized"
+}
+```
+
+**Fix**: Verify your API key is correct and hasn't been revoked.
+
+## Rate Limits
+
+API requests are rate-limited per endpoint. See [rate-limits](./rate-limits) for details.
+
+Rate limit headers are included in every response:
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1640000000
+```
+
+## Need Help?
+
+- Check the [Quick Start Guide](./quickstart)
+- Review [Error Codes](./errors)
+- Contact support: support@ceypay.io

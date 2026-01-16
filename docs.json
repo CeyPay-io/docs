@@ -44,6 +44,23 @@
                         "pages": ["faq", "report-abuse"]
                     }
                 ]
+            },
+            {
+                "tab": "API Reference",
+                "groups": [
+                    {
+                        "group": "Getting Started",
+                        "pages": ["api/quickstart", "api/authentication"]
+                    },
+                    {
+                        "group": "Core Resources",
+                        "pages": ["api/payments", "api/payment-links", "api/webhooks"]
+                    },
+                    {
+                        "group": "Reference",
+                        "pages": ["api/errors", "api/rate-limits"]
+                    }
+                ]
             }
         ],
         "global": {
@@ -79,11 +96,13 @@
     },
     "footer": {
         "socials": {
-            "x": "https://x.com/CeylonCash",
-            "github": "https://github.com/CeyLabs",
+            "x-twitter": "https://x.com/ceypayintern",
+            "telegram": "https://t.me/CeyPayio",
+            "github": "https://github.com/CeyPay-io",
             "linkedin": "https://www.linkedin.com/showcase/ceypay/",
-            "facebook": "https://www.facebook.com/CeylonCashOfficial",
-            "instagram": "https://www.instagram.com/ceyloncash/"
+            "facebook": "https://www.fb.com/ceypay.io/",
+            "instagram": "https://www.instagram.com/ceypay.io"
+           
         }
     }
 }
