@@ -65,7 +65,7 @@ This documentation covers the **CeyPay WordPress Plugin**, the easiest way to ac
 
 With just a few clicks, you can:
 
-- ✅ Accept payments from Binance Pay, Bybit, and Bitazza
+- ✅ Accept payments from Binance Pay and Bybit Pay
 - ✅ Automatically convert crypto to LKR
 - ✅ Receive instant payment notifications
 - ✅ Provide a seamless checkout experience
@@ -128,8 +128,8 @@ With just a few clicks, you can:
 
 <CardGroup cols={3}>
   <Card title="Multi-Provider Support" icon="wallet">
-    Accept payments from Binance Pay, Bybit, and Bitazza. Customers choose their
-    preferred crypto wallet at checkout.
+    Accept payments from Binance Pay and Bybit. Customers choose their preferred
+    crypto wallet at checkout.
   </Card>
   <Card title="Real-Time Verification" icon="bolt">
     Payments are verified in real-time through webhooks and polling, ensuring
@@ -159,7 +159,7 @@ With just a few clicks, you can:
   </Step>
   <Step title="Choose Crypto Provider">
     A modal appears where the customer selects their preferred crypto wallet
-    (Binance, Bybit, or Bitazza).
+    (Binance or Bybit).
   </Step>
   <Step title="Scan QR Code">
     A QR code is generated for the selected provider. On mobile, a deep link
@@ -185,8 +185,8 @@ https://yoursite.com/?wc-api=WC_Gateway_CeyPay
 
 <Tip>
   This endpoint is automatically configured by the plugin. All payment
-  confirmations from Binance Pay, Bybit, and Bitazza are securely delivered to
-  this URL with HMAC-SHA256 signature verification.
+  confirmations from Binance Pay and Bybit are securely delivered to this URL
+  with HMAC-SHA256 signature verification.
 </Tip>
 
 ## Requirements

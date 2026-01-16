@@ -3,10 +3,6 @@ title: Webhooks
 description: Technical reference for CeyPay WordPress Plugin webhook integration and signature verification.
 ---
 
-<div style={{ textAlign: 'center', margin: '20px 0' }}>
-  <img src="/images/ceypay-symbol.png" alt="CeyPay" style={{ height: '60px' }} />
-</div>
-
 Webhooks allow CeyPay to notify your WooCommerce store in real-time when payment events occur. This ensures orders are updated immediately when customers complete their payments.
 
 ## Webhook Endpoint
@@ -129,17 +125,46 @@ The following metadata is stored on each order:
 | Meta Key | Description |
 |----------|-------------|
 | `_ceypay_transaction_id` | CeyPay transaction identifier |
-| `_ceypay_provider` | Selected payment provider (BINANCE, BYBIT, BITAZZA) |
+| `_ceypay_provider` | Selected payment provider (BINANCE, BYBIT) |
 | `_ceypay_qr_code_url` | QR code content URL |
 | `_ceypay_deep_link` | Deep link URL for mobile wallets |
 
 **Available Providers:**
 
-<div style={{ display: 'flex', gap: '20px', margin: '15px 0', flexWrap: 'wrap', alignItems: 'center' }}>
-  <img src="/images/binance.svg" alt="Binance Pay" style={{ height: '24px' }} />
-  <img src="/images/bybit.svg" alt="Bybit" style={{ height: '24px' }} />
-  <img src="/images/bitazza.svg" alt="Bitazza" style={{ height: '24px' }} />
-</div>
+<CardGroup cols={2}>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BinancePay.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BinancePay-Dark.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+</CardGroup>
 
 ## Handling Webhook Responses
 
