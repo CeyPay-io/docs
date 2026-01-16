@@ -50,15 +50,15 @@
                 "groups": [
                     {
                         "group": "Getting Started",
-                        "pages": ["api/quickstart", "api/authentication"]
+                        "pages": ["api/v1/quickstart", "api/v1/authentication"]
                     },
                     {
                         "group": "Core Resources",
-                        "pages": ["api/payments", "api/payment-links", "api/webhooks"]
+                        "pages": ["api/v1/payments", "api/v1/payment-links", "api/v1/webhooks"]
                     },
                     {
                         "group": "Reference",
-                        "pages": ["api/errors", "api/rate-limits"]
+                        "pages": ["api/v1/errors", "api/v1/rate-limits"]
                     }
                 ]
             }
