@@ -66,21 +66,38 @@ When Test Mode is active:
 
 CeyPay supports the following cryptocurrency payment providers:
 
-<CardGroup cols={3}>
-  <Card title="Binance Pay">
-    <img src="/images/binance.svg" alt="Binance Pay" style={{ height: '32px', marginBottom: '10px' }} />
-
-    The payment service from the world's largest crypto exchange.
+<CardGroup cols={2}>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BinancePay.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BinancePay-Dark.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+    </div>
   </Card>
-  <Card title="Bybit">
-    <img src="/images/bybit.svg" alt="Bybit" style={{ height: '32px', marginBottom: '10px' }} />
-
-    Fast and secure payments through Bybit's ecosystem.
-  </Card>
-  <Card title="Bitazza">
-    <img src="/images/bitazza.svg" alt="Bitazza" style={{ height: '32px', marginBottom: '10px' }} />
-
-    Regional crypto payment provider.
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
   </Card>
 </CardGroup>
 

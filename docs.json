@@ -98,11 +98,42 @@
         "socials": {
             "x-twitter": "https://x.com/ceypayintern",
             "telegram": "https://t.me/CeyPayio",
+             "instagram": "https://www.instagram.com/ceypay.io",
             "github": "https://github.com/CeyPay-io",
-            "linkedin": "https://www.linkedin.com/showcase/ceypay/",
-            "facebook": "https://www.fb.com/ceypay.io/",
-            "instagram": "https://www.instagram.com/ceypay.io"
-           
-        }
+             "facebook": "https://www.fb.com/ceypay.io/",
+            "linkedin": "https://www.linkedin.com/showcase/ceypay/"
+        },
+        "links": [
+            {
+                "header": "Product",
+                "items": [
+                    {
+                        "label": "Home",
+                        "href": "https://ceypay.io"
+                    },
+                    {
+                        "label": "Leaderboard",
+                        "href": "https://leaderboard.ceypay.io"
+                    },
+                    {
+                        "label": "Affiliate Program",
+                        "href": "https://ceypay.io/affiliate"
+                    }
+                ]
+            },
+            {
+                "header": "Legal",
+                "items": [
+                    {
+                        "label": "Privacy Policy",
+                        "href": "https://www.ceypay.io/legal/privacy"
+                    },
+                    {
+                        "label": "Terms & Conditions",
+                        "href": "https://www.ceypay.io/legal/terms"
+                    }
+                ]
+            }
+        ]
     }
 }

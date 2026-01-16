@@ -22,23 +22,55 @@ Designed with both merchants and customers in mind, CeyPay provides a seamless c
 
 ## Supported Payment Providers
 
-<div style={{ display: 'flex', justifyContent: 'center', gap: '40px', margin: '30px 0', flexWrap: 'wrap' }}>
-  <img src="/images/binance.svg" alt="Binance Pay" style={{ height: '40px' }} />
-  <img src="/images/bybit.svg" alt="Bybit" style={{ height: '40px' }} />
-  <img src="/images/bitazza.svg" alt="Bitazza" style={{ height: '40px' }} />
-</div>
+<CardGroup cols={2}>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BinancePay.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BinancePay-Dark.svg"
+        alt="Binance Pay"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
+</CardGroup>
 
 ## Key Features
 
 <CardGroup cols={2}>
   <Card title="Multi-Provider Support" icon="wallet">
-    Accept payments from Binance Pay, Bybit, and Bitazza. Customers choose their preferred crypto wallet at checkout.
+    Accept payments from Binance Pay, Bybit, and Bitazza. Customers choose their
+    preferred crypto wallet at checkout.
   </Card>
   <Card title="Real-Time Verification" icon="bolt">
-    Payments are verified in real-time through webhooks and polling, ensuring orders are processed immediately.
+    Payments are verified in real-time through webhooks and polling, ensuring
+    orders are processed immediately.
   </Card>
   <Card title="Mobile Optimized" icon="mobile">
-    Deep linking support automatically opens the customer's crypto wallet app on mobile devices.
+    Deep linking support automatically opens the customer's crypto wallet app on
+    mobile devices.
   </Card>
   <Card title="WooCommerce Blocks" icon="cube">
     Full compatibility with WooCommerce Blocks checkout for modern storefronts.
@@ -55,16 +87,20 @@ Designed with both merchants and customers in mind, CeyPay provides a seamless c
 
 <Steps>
   <Step title="Customer Selects CeyPay">
-    At checkout, the customer selects CeyPay as their payment method and clicks "Place Order".
+    At checkout, the customer selects CeyPay as their payment method and clicks
+    "Place Order".
   </Step>
   <Step title="Choose Crypto Provider">
-    A modal appears where the customer selects their preferred crypto wallet (Binance, Bybit, or Bitazza).
+    A modal appears where the customer selects their preferred crypto wallet
+    (Binance, Bybit, or Bitazza).
   </Step>
   <Step title="Scan QR Code">
-    A QR code is generated for the selected provider. On mobile, a deep link button opens the wallet app directly.
+    A QR code is generated for the selected provider. On mobile, a deep link
+    button opens the wallet app directly.
   </Step>
   <Step title="Payment Confirmation">
-    CeyPay monitors the payment status in real-time. Once confirmed, the order is automatically marked as complete.
+    CeyPay monitors the payment status in real-time. Once confirmed, the order
+    is automatically marked as complete.
   </Step>
 </Steps>
 
@@ -72,15 +108,16 @@ Designed with both merchants and customers in mind, CeyPay provides a seamless c
 
 Before installing CeyPay, ensure your environment meets these requirements:
 
-| Requirement | Version |
-|-------------|---------|
-| WordPress | 5.8 or higher |
-| WooCommerce | 7.0 or higher |
-| PHP | 7.4 or higher |
+| Requirement     | Version               |
+| --------------- | --------------------- |
+| WordPress       | 5.8 or higher         |
+| WooCommerce     | 7.0 or higher         |
+| PHP             | 7.4 or higher         |
 | SSL Certificate | Required for webhooks |
 
 <Note>
-  Your website must be accessible from the internet with a valid SSL certificate for webhooks to function correctly.
+  Your website must be accessible from the internet with a valid SSL certificate
+  for webhooks to function correctly.
 </Note>
 
 ## Quick Links
