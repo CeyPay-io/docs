@@ -3,6 +3,10 @@ title: "Webhook Integration"
 description: "Receive real-time webhook notifications when payment events occur. Learn webhook setup, ED25519 signature verification, and best practices."
 ---
 
+# Webhook Integration Guide
+
+CeyPay sends real-time webhook notifications when payment events occur. This guide covers webhook setup, signature verification, and best practices.
+
 ## Overview
 
 Webhooks enable you to receive automatic notifications when:
@@ -156,7 +160,7 @@ app.post('/webhooks/ceypay', (req, res) => {
 
   // Verify signature using ED25519
   const message = timestamp + rawBody;
-
+  
   try {
     const isValid = crypto.verify(
       null,

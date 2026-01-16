@@ -3,6 +3,10 @@ title: "Quick Start Guide"
 description: "Get started with the CeyPay API in minutes. This guide walks you through creating your first payment."
 ---
 
+# Quick Start Guide
+
+Get started with the CeyPay API in minutes. This guide walks you through creating your first payment.
+
 ## Prerequisites
 
 - A CeyPay merchant account ([sign up here](https://merchant.ceypay.io))
@@ -19,8 +23,8 @@ description: "Get started with the CeyPay API in minutes. This guide walks you t
 
 Your API key looks like: `ak_live_abc123xyz.sk_live_def456uvw`
 
-- `ak_live_abc123xyz` - Public key ID
-- `sk_live_def456uvw` - Secret key (keep this private!)
+- `ak_live_abc123xyz` - Public key ID (sent in `x-api-key` header)
+- `sk_live_def456uvw` - Secret key (used locally to derive signing key, NEVER transmitted)
 
 **Important**: Store your API key securely (environment variable, secrets manager, etc.)
 
@@ -38,7 +42,10 @@ const axios = require('axios');
 
 // Your API key (store in environment variable)
 const API_KEY = process.env.CEYPAY_API_KEY; // e.g., ak_live_xxx.sk_live_yyy
-const [publicKey, secretKey] = API_KEY.split('.');
+const [keyId, secret] = API_KEY.split('.');
+
+// Derive signing key from secret (do this once)
+const signingKey = crypto.createHash('sha256').update(secret).digest('hex');
 
 // Create payment
 async function createPayment() {
@@ -62,21 +69,21 @@ async function createPayment() {
     }
   });
 
-  // Generate signature
+  // Generate signature using derived key (NOT raw secret)
   const message = timestamp + method + path + body;
   const signature = crypto
-    .createHmac('sha256', secretKey)
+    .createHmac('sha256', signingKey)
     .update(message)
     .digest('hex');
 
-  // Make request
+  // Make request - send ONLY key ID, not full API key
   const response = await axios.post(
     `https://api.ceypay.io${path}`,
     JSON.parse(body),
     {
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
+        'x-api-key': keyId,  // Only the key ID!
         'x-timestamp': timestamp,
         'x-signature': signature
       }
@@ -105,7 +112,10 @@ import requests
 
 # Your API key (store in environment variable)
 API_KEY = os.getenv('CEYPAY_API_KEY')  # e.g., ak_live_xxx.sk_live_yyy
-public_key, secret_key = API_KEY.split('.')
+key_id, secret = API_KEY.split('.')
+
+# Derive signing key from secret (do this once)
+signing_key = hashlib.sha256(secret.encode()).hexdigest()
 
 def create_payment():
     timestamp = str(int(time.time() * 1000))
@@ -129,20 +139,20 @@ def create_payment():
     }
     body = json.dumps(body_dict)
 
-    # Generate signature
+    # Generate signature using derived key (NOT raw secret)
     message = f"{timestamp}{method}{path}{body}"
     signature = hmac.new(
-        secret_key.encode(),
+        signing_key.encode(),
         message.encode(),
         hashlib.sha256
     ).hexdigest()
 
-    # Make request
+    # Make request - send ONLY key ID, not full API key
     response = requests.post(
         f'https://api.ceypay.io{path}',
         json=body_dict,
         headers={
-            'x-api-key': API_KEY,
+            'x-api-key': key_id,  # Only the key ID!
             'x-timestamp': timestamp,
             'x-signature': signature
         }
@@ -164,8 +174,16 @@ if __name__ == '__main__':
 ```bash
 #!/bin/bash
 
+# Your API key
 API_KEY="ak_live_abc123xyz.sk_live_def456uvw"
-SECRET_KEY="sk_live_def456uvw"
+
+# Split into key ID and secret
+KEY_ID="${API_KEY%%.*}"
+SECRET="${API_KEY#*.}"
+
+# Derive signing key from secret
+SIGNING_KEY=$(echo -n "$SECRET" | sha256sum | cut -d' ' -f1)
+
 TIMESTAMP=$(date +%s)000
 METHOD="POST"
 PATH="/v1/payment"
@@ -186,12 +204,14 @@ BODY='{
   }
 }'
 
+# Generate signature using derived signing key
 MESSAGE="${TIMESTAMP}${METHOD}${PATH}${BODY}"
-SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SECRET_KEY" | cut -d' ' -f2)
+SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SIGNING_KEY" | cut -d' ' -f2)
 
+# Send ONLY key ID in header, not full API key
 curl -X POST "https://api.ceypay.io${PATH}" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: $API_KEY" \
+  -H "x-api-key: $KEY_ID" \
   -H "x-timestamp: $TIMESTAMP" \
   -H "x-signature: $SIGNATURE" \
   -d "$BODY"
@@ -289,15 +309,23 @@ app.post('/webhooks/ceypay', (req, res) => {
 app.listen(3000, () => console.log('Webhook server running on port 3000'));
 ```
 
-See [webhooks.mdx](./webhooks) for complete webhook integration guide.
+See [webhooks.md](./webhooks.md) for complete webhook integration guide.
 
 ## Step 5: Test Your Integration
 
 ### Test Webhook Endpoint
 
 ```bash
+# Derive signing key first
+SIGNING_KEY=$(echo -n "$SECRET" | sha256sum | cut -d' ' -f1)
+
+# Generate signature
+TIMESTAMP=$(date +%s)000
+MESSAGE="${TIMESTAMP}POST/v1/webhooks/test{\"webhookUrl\": \"https://your-app.com/webhooks/ceypay\"}"
+SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SIGNING_KEY" | cut -d' ' -f2)
+
 curl -X POST https://api.ceypay.io/v1/webhooks/test \
-  -H "x-api-key: $API_KEY" \
+  -H "x-api-key: $KEY_ID" \
   -H "x-timestamp: $TIMESTAMP" \
   -H "x-signature: $SIGNATURE" \
   -d '{"webhookUrl": "https://your-app.com/webhooks/ceypay"}'
@@ -377,11 +405,11 @@ sendEmail({
 
 ### Learn More
 
-- **Authentication**: [authentication](./authentication) - Deep dive into HMAC signature
-- **Webhooks**: [webhooks](./webhooks) - Complete webhook integration guide
-- **Payment Links**: [payment-links](./payment-links) - Guide to using payment links
-- **Error Handling**: [errors](./errors) - Error codes and troubleshooting
-- **Rate Limits**: [rate-limits](./rate-limits) - API rate limiting policies
+- **Authentication**: [authentication.md](./authentication.md) - Deep dive into HMAC signature
+- **Webhooks**: [webhooks.md](./webhooks.md) - Complete webhook integration guide
+- **Payment Links**: [payment-links.md](./payment-links.md) - Guide to using payment links
+- **Error Handling**: [errors.md](./errors.md) - Error codes and troubleshooting
+- **Rate Limits**: [rate-limits.md](./rate-limits.md) - API rate limiting policies
 
 ### Explore API Endpoints
 
@@ -418,7 +446,7 @@ Before going live, ensure you:
 - [ ] Completed merchant onboarding and KYC
 - [ ] Generated production API key
 - [ ] Stored API key securely (environment variable)
-- [ ] Implemented HMAC signature authentication
+- [ ] Implemented HMAC signature authentication with derived signing key
 - [ ] Set up webhook endpoint with signature verification
 - [ ] Tested payment flow end-to-end
 - [ ] Implemented error handling
@@ -433,6 +461,7 @@ Before going live, ensure you:
 - Use environment variables for secrets
 - Always verify webhook signatures
 - Use HTTPS for all webhook endpoints
+- Send only the key ID in `x-api-key`, never the full API key
 
 ### Performance
 - Cache exchange rates when possible
@@ -445,3 +474,5 @@ Before going live, ensure you:
 - Create test payments regularly
 - Monitor webhook delivery logs
 - Set up alerts for failed webhooks
+
+Happy coding!

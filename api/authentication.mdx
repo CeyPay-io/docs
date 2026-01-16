@@ -3,13 +3,19 @@ title: "API Authentication"
 description: "Learn how CeyPay's HMAC-SHA256 signature authentication secures API communication between your application and our servers."
 ---
 
+# API Authentication Guide
+
+CeyPay's public API uses **HMAC-SHA256 signature authentication** to ensure secure communication between your application and our servers.
+
 ## Overview
 
 Every API request must include three headers:
 
-- `x-api-key`: Your API key (format: `ak_live_xxx.sk_live_xxx`)
+- `x-api-key`: Your API key ID only (format: `ak_live_xxx`)
 - `x-timestamp`: Current Unix timestamp in milliseconds
 - `x-signature`: HMAC-SHA256 signature of the request
+
+**Important**: The `x-api-key` header should contain ONLY the key ID, NOT the full API key. The secret key is never transmitted over the wire.
 
 ## Getting Your API Key
 
@@ -21,24 +27,33 @@ Every API request must include three headers:
 
 **API Key Format**: `ak_live_abc123.sk_live_xyz789`
 
-- First part (`ak_live_abc123`): Public key ID
-- Second part (`sk_live_xyz789`): Secret key (keep this private!)
+- First part (`ak_live_abc123`): Public key ID - sent in `x-api-key` header
+- Second part (`sk_live_xyz789`): Secret key - used locally to derive signing key, NEVER transmitted
 
 ## Signature Calculation
 
-The signature is calculated by creating an HMAC-SHA256 hash of a message composed of:
+The signature is calculated using a **derived signing key** (hash of your secret):
 
 ```
+signingKey = SHA256(secret_key)
 message = timestamp + method + path + body
-signature = HMAC-SHA256(message, secret_key)
+signature = HMAC-SHA256(message, signingKey)
 ```
+
+### Why Use a Derived Key?
+
+This design ensures your secret key is **never transmitted** over the network:
+- You send only the key ID in `x-api-key`
+- The signature proves you possess the secret without revealing it
+- Even if an attacker intercepts the request, they cannot forge new requests
 
 ### Components:
 
-1. **timestamp**: Unix timestamp in milliseconds (same value as `x-timestamp` header)
-2. **method**: HTTP method in UPPERCASE (`GET`, `POST`, `PATCH`, `DELETE`)
-3. **path**: Full request path including query parameters (e.g., `/v1/payments?page=1`)
-4. **body**: Request body as JSON string (empty string for GET/DELETE requests)
+1. **signingKey**: SHA256 hash of your secret key (computed locally)
+2. **timestamp**: Unix timestamp in milliseconds (same value as `x-timestamp` header)
+3. **method**: HTTP method in UPPERCASE (`GET`, `POST`, `PATCH`, `DELETE`)
+4. **path**: Full request path including query parameters (e.g., `/v1/payments?page=1`)
+5. **body**: Request body as JSON string (empty string for GET/DELETE requests)
 
 ## Implementation Examples
 
@@ -47,34 +62,40 @@ signature = HMAC-SHA256(message, secret_key)
 ```javascript
 const crypto = require('crypto');
 
-function generateSignature(timestamp, method, path, body, secretKey) {
+// Your full API key (store securely, e.g., in environment variables)
+const API_KEY = 'ak_live_abc123.sk_live_xyz789';
+const [keyId, secret] = API_KEY.split('.');
+
+// Derive signing key from secret (do this once, reuse for all requests)
+const signingKey = crypto.createHash('sha256').update(secret).digest('hex');
+
+function generateSignature(timestamp, method, path, body) {
   const message = timestamp + method + path + body;
   const signature = crypto
-    .createHmac('sha256', secretKey)
+    .createHmac('sha256', signingKey)
     .update(message)
     .digest('hex');
   return signature;
 }
 
-// Example: POST /v1/payments
+// Example: POST /v1/payment
 const timestamp = Date.now().toString();
 const method = 'POST';
-const path = '/v1/payments';
+const path = '/v1/payment';
 const body = JSON.stringify({
   amount: 100,
   currency: 'USDT',
   goods: [{ name: 'Product', description: 'Test product' }]
 });
-const secretKey = 'sk_live_xyz789...'; // Extract from your API key
 
-const signature = generateSignature(timestamp, method, path, body, secretKey);
+const signature = generateSignature(timestamp, method, path, body);
 
 // Make the request
 const axios = require('axios');
-const response = await axios.post('https://api.ceypay.io/v1/payments', body, {
+const response = await axios.post('https://api.ceypay.io/v1/payment', body, {
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': 'ak_live_abc123.sk_live_xyz789',
+    'x-api-key': keyId,  // Only the key ID, NOT the full key!
     'x-timestamp': timestamp,
     'x-signature': signature
   }
@@ -90,35 +111,41 @@ import time
 import json
 import requests
 
-def generate_signature(timestamp, method, path, body, secret_key):
+# Your full API key (store securely)
+API_KEY = 'ak_live_abc123.sk_live_xyz789'
+key_id, secret = API_KEY.split('.')
+
+# Derive signing key from secret
+signing_key = hashlib.sha256(secret.encode()).hexdigest()
+
+def generate_signature(timestamp, method, path, body):
     message = f"{timestamp}{method}{path}{body}"
     signature = hmac.new(
-        secret_key.encode(),
+        signing_key.encode(),
         message.encode(),
         hashlib.sha256
     ).hexdigest()
     return signature
 
-# Example: POST /v1/payments
+# Example: POST /v1/payment
 timestamp = str(int(time.time() * 1000))
 method = 'POST'
-path = '/v1/payments'
+path = '/v1/payment'
 body_dict = {
     'amount': 100,
     'currency': 'USDT',
     'goods': [{'name': 'Product', 'description': 'Test product'}]
 }
 body = json.dumps(body_dict)
-secret_key = 'sk_live_xyz789...'  # Extract from your API key
 
-signature = generate_signature(timestamp, method, path, body, secret_key)
+signature = generate_signature(timestamp, method, path, body)
 
 # Make the request
 response = requests.post(
-    'https://api.ceypay.io/v1/payments',
+    'https://api.ceypay.io/v1/payment',
     json=body_dict,
     headers={
-        'x-api-key': 'ak_live_abc123.sk_live_xyz789',
+        'x-api-key': key_id,  # Only the key ID!
         'x-timestamp': timestamp,
         'x-signature': signature
     }
@@ -130,16 +157,23 @@ response = requests.post(
 ```php
 <?php
 
-function generateSignature($timestamp, $method, $path, $body, $secretKey) {
+// Your full API key (store securely)
+$apiKey = 'ak_live_abc123.sk_live_xyz789';
+[$keyId, $secret] = explode('.', $apiKey);
+
+// Derive signing key from secret
+$signingKey = hash('sha256', $secret);
+
+function generateSignature($timestamp, $method, $path, $body, $signingKey) {
     $message = $timestamp . $method . $path . $body;
-    $signature = hash_hmac('sha256', $message, $secretKey);
+    $signature = hash_hmac('sha256', $message, $signingKey);
     return $signature;
 }
 
-// Example: POST /v1/payments
+// Example: POST /v1/payment
 $timestamp = (string)(time() * 1000);
 $method = 'POST';
-$path = '/v1/payments';
+$path = '/v1/payment';
 $bodyArray = [
     'amount' => 100,
     'currency' => 'USDT',
@@ -148,18 +182,17 @@ $bodyArray = [
     ]
 ];
 $body = json_encode($bodyArray);
-$secretKey = 'sk_live_xyz789...'; // Extract from your API key
 
-$signature = generateSignature($timestamp, $method, $path, $body, $secretKey);
+$signature = generateSignature($timestamp, $method, $path, $body, $signingKey);
 
 // Make the request
-$ch = curl_init('https://api.ceypay.io/v1/payments');
+$ch = curl_init('https://api.ceypay.io/v1/payment');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Content-Type: application/json',
-    'x-api-key: ak_live_abc123.sk_live_xyz789',
+    'x-api-key: ' . $keyId,  // Only the key ID!
     'x-timestamp: ' . $timestamp,
     'x-signature: ' . $signature
 ]);
@@ -177,33 +210,39 @@ require 'json'
 require 'net/http'
 require 'uri'
 
-def generate_signature(timestamp, method, path, body, secret_key)
+# Your full API key (store securely)
+api_key = 'ak_live_abc123.sk_live_xyz789'
+key_id, secret = api_key.split('.')
+
+# Derive signing key from secret
+signing_key = Digest::SHA256.hexdigest(secret)
+
+def generate_signature(timestamp, method, path, body, signing_key)
   message = "#{timestamp}#{method}#{path}#{body}"
-  OpenSSL::HMAC.hexdigest('SHA256', secret_key, message)
+  OpenSSL::HMAC.hexdigest('SHA256', signing_key, message)
 end
 
-# Example: POST /v1/payments
+# Example: POST /v1/payment
 timestamp = (Time.now.to_f * 1000).to_i.to_s
 method = 'POST'
-path = '/v1/payments'
+path = '/v1/payment'
 body_hash = {
   amount: 100,
   currency: 'USDT',
   goods: [{ name: 'Product', description: 'Test product' }]
 }
 body = body_hash.to_json
-secret_key = 'sk_live_xyz789...' # Extract from your API key
 
-signature = generate_signature(timestamp, method, path, body, secret_key)
+signature = generate_signature(timestamp, method, path, body, signing_key)
 
 # Make the request
-uri = URI('https://api.ceypay.io/v1/payments')
+uri = URI('https://api.ceypay.io/v1/payment')
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true
 
 request = Net::HTTP::Post.new(uri.path)
 request['Content-Type'] = 'application/json'
-request['x-api-key'] = 'ak_live_abc123.sk_live_xyz789'
+request['x-api-key'] = key_id  # Only the key ID!
 request['x-timestamp'] = timestamp
 request['x-signature'] = signature
 request.body = body
@@ -213,7 +252,36 @@ response = http.request(request)
 
 ## Common Mistakes & Troubleshooting
 
-### 1. Incorrect Timestamp Format
+### 1. Sending Full API Key in Header
+
+❌ **Wrong**: Sending the full key including secret
+```javascript
+headers: {
+  'x-api-key': 'ak_live_abc123.sk_live_xyz789'  // Wrong!
+}
+```
+
+✅ **Correct**: Send only the key ID
+```javascript
+headers: {
+  'x-api-key': 'ak_live_abc123'  // Correct!
+}
+```
+
+### 2. Using Raw Secret Instead of Derived Key
+
+❌ **Wrong**: Signing with raw secret
+```javascript
+const signature = crypto.createHmac('sha256', secret).update(message).digest('hex');
+```
+
+✅ **Correct**: Sign with derived key (SHA256 hash of secret)
+```javascript
+const signingKey = crypto.createHash('sha256').update(secret).digest('hex');
+const signature = crypto.createHmac('sha256', signingKey).update(message).digest('hex');
+```
+
+### 3. Incorrect Timestamp Format
 
 ❌ **Wrong**: Using seconds instead of milliseconds
 ```javascript
@@ -225,7 +293,7 @@ const timestamp = Math.floor(Date.now() / 1000); // Wrong!
 const timestamp = Date.now().toString(); // Correct!
 ```
 
-### 2. Incorrect Message Concatenation
+### 4. Incorrect Message Concatenation
 
 ❌ **Wrong**: Adding spaces or separators
 ```javascript
@@ -237,18 +305,18 @@ const message = `${timestamp} ${method} ${path} ${body}`; // Wrong!
 const message = timestamp + method + path + body; // Correct!
 ```
 
-### 3. Query Parameters in Path
+### 5. Query Parameters in Path
 
 For GET requests with query parameters, include them in the path:
 
 ✅ **Correct**:
 ```javascript
-const path = '/v1/payments?page=2&pageSize=50';
+const path = '/v1/payment/list?page=2&pageSize=50';
 const body = ''; // Empty for GET requests
 const message = timestamp + 'GET' + path + body;
 ```
 
-### 4. JSON Body Formatting
+### 6. JSON Body Formatting
 
 Ensure the body is stringified exactly as sent in the request:
 
@@ -258,10 +326,10 @@ const bodyObject = { amount: 100, currency: 'USDT', goods: [...] };
 const bodyString = JSON.stringify(bodyObject);
 
 // Use bodyString for both signature and request body
-const signature = generateSignature(timestamp, method, path, bodyString, secretKey);
+const signature = generateSignature(timestamp, method, path, bodyString);
 ```
 
-### 5. Timestamp Expiration
+### 7. Timestamp Expiration
 
 Timestamps are valid for **5 minutes**. If you get a timestamp error:
 
@@ -292,27 +360,51 @@ Timestamps are valid for **5 minutes**. If you get a timestamp error:
    - Recommended: Every 90 days
    - Immediately if compromised
 
+6. **Store the derived signing key securely**
+   - Compute it once at application startup
+   - Keep it in memory, don't log it
+
 ## Testing Your Implementation
 
 Use the webhook test endpoint to verify your signature calculation:
 
 ```bash
+# First, derive your signing key
+SIGNING_KEY=$(echo -n "sk_live_xyz789" | sha256sum | cut -d' ' -f1)
+
+# Then create signature
+TIMESTAMP=$(date +%s000)
+MESSAGE="${TIMESTAMP}POST/v1/webhooks/test{\"webhookUrl\": \"https://your-app.com/webhook\"}"
+SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SIGNING_KEY" | cut -d' ' -f2)
+
 curl -X POST https://api.ceypay.io/v1/webhooks/test \
   -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123.sk_live_xyz789" \
-  -H "x-timestamp: 1640000000000" \
-  -H "x-signature: abc123..." \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: $TIMESTAMP" \
+  -H "x-signature: $SIGNATURE" \
   -d '{"webhookUrl": "https://your-app.com/webhook"}'
 ```
 
 If you get a 401 Unauthorized, check:
-1. API key format (should include both parts)
-2. Timestamp is current (within 5 minutes)
-3. Signature calculation matches exactly
-4. HTTP method is uppercase
-5. Path includes query parameters if any
+1. `x-api-key` contains ONLY the key ID (no `.sk_live_...` part)
+2. Signing key is SHA256 hash of your secret
+3. Timestamp is current (within 5 minutes) and in milliseconds
+4. Signature calculation matches exactly
+5. HTTP method is uppercase
+6. Path includes query parameters if any
 
 ## Error Responses
+
+### 401 Unauthorized - Invalid x-api-key Format
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid x-api-key format: send only the key ID (ak_live_xxx), not the full key",
+  "error": "Unauthorized"
+}
+```
+
+**Fix**: Send only the key ID in `x-api-key`, not the full `keyId.secret` format.
 
 ### 401 Unauthorized - Invalid Signature
 ```json
@@ -323,7 +415,7 @@ If you get a 401 Unauthorized, check:
 }
 ```
 
-**Fix**: Verify your signature calculation matches the examples above.
+**Fix**: Ensure you're using the derived signing key (SHA256 hash of secret) for HMAC.
 
 ### 401 Unauthorized - Timestamp Outside Valid Window
 ```json
@@ -345,11 +437,11 @@ If you get a 401 Unauthorized, check:
 }
 ```
 
-**Fix**: Verify your API key is correct and hasn't been revoked.
+**Fix**: Verify your API key ID is correct and hasn't been revoked.
 
 ## Rate Limits
 
-API requests are rate-limited per endpoint. See [rate-limits](./rate-limits) for details.
+API requests are rate-limited per endpoint. See [rate-limits.md](./rate-limits.md) for details.
 
 Rate limit headers are included in every response:
 ```
@@ -360,6 +452,6 @@ X-RateLimit-Reset: 1640000000
 
 ## Need Help?
 
-- Check the [Quick Start Guide](./quickstart)
-- Review [Error Codes](./errors)
+- Check the [Quick Start Guide](./quickstart.md)
+- Review [Error Codes](./errors.md)
 - Contact support: support@ceypay.io

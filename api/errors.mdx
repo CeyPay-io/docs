@@ -3,6 +3,10 @@ title: "Error Codes Reference"
 description: "Complete guide to all error responses you may encounter when using the CeyPay API, with troubleshooting steps for each."
 ---
 
+# Error Codes Reference
+
+This guide covers all error responses you may encounter when using the CeyPay API, along with troubleshooting steps.
+
 ## Error Response Format
 
 All API errors follow this consistent format:
@@ -257,7 +261,7 @@ Retry-After: 45
 - Wait for the time specified in `retryAfter`
 - Implement exponential backoff
 - Cache responses where appropriate
-- Review [rate-limits](./rate-limits) for limits per endpoint
+- Review [rate-limits.md](./rate-limits.md) for limits per endpoint
 
 ---
 
@@ -576,7 +580,7 @@ If you encounter persistent errors:
 
 ## Related Documentation
 
-- [Authentication Guide](./authentication) - HMAC signature implementation
-- [Webhooks Guide](./webhooks) - Webhook integration and errors
-- [Rate Limits](./rate-limits) - API rate limiting policies
-- [Quick Start](./quickstart) - Getting started guide
+- [Authentication Guide](./authentication.md) - HMAC signature implementation
+- [Webhooks Guide](./webhooks.md) - Webhook integration and errors
+- [Rate Limits](./rate-limits.md) - API rate limiting policies
+- [Quick Start](./quickstart.md) - Getting started guide

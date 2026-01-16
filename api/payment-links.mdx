@@ -3,23 +3,37 @@ title: "Payment Links API"
 description: "Accept payments without full checkout integration. Generate reusable or single-use payment links and share them via email, SMS, or social media."
 ---
 
-## Overview
+# Payment Links API
 
-- **Base URL**: `https://api.ceypay.io/v1/payment-link`
-- **Authentication**: HMAC-SHA256 Signature (see [Authentication](./authentication))
-- **Rate Limits**: Varies by endpoint (see below)
+Payment links allow you to accept payments without creating a full checkout integration. You can generate reusable or single-use links and share them with your customers via email, SMS, or social media.
+
+## Base URL
+
+```
+https://api.ceypay.io
+```
 
 ## Endpoints
 
-### 1. Create Payment Link
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| POST | `/v1/payment-link` | Create a new payment link | 50 req/min |
+| GET | `/v1/payment-link/:id` | Get payment link details | 100 req/min |
+| GET | `/v1/payment-link` | List payment links | 100 req/min |
+| PATCH | `/v1/payment-link/:id` | Update a payment link | 50 req/min |
+| DELETE | `/v1/payment-link/:id` | Deactivate a payment link | 50 req/min |
+
+---
+
+## Create Payment Link
 
 Create a new payment link.
 
-- **Method**: `POST`
-- **Path**: `/v1/payment-link`
-- **Rate Limit**: 50 requests per minute
+```
+POST /v1/payment-link
+```
 
-#### Request Body
+### Request Body
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -34,7 +48,7 @@ Create a new payment link.
 | `expiration_date` | string | No | Expiration date in ISO 8601 format. |
 | `branchId` | string | No | Branch ID to associate with. |
 
-#### Example Request
+### Example Request
 
 ```json
 {
@@ -47,7 +61,7 @@ Create a new payment link.
 }
 ```
 
-#### Example Response (201 Created)
+### Example Response (201 Created)
 
 ```json
 {
@@ -69,15 +83,17 @@ Create a new payment link.
 }
 ```
 
-### 2. Get Payment Link
+---
+
+## Get Payment Link
 
 Get details of a specific payment link.
 
-- **Method**: `GET`
-- **Path**: `/v1/payment-link/:id`
-- **Rate Limit**: 100 requests per minute
+```
+GET /v1/payment-link/:id
+```
 
-#### Example Response (200 OK)
+### Example Response (200 OK)
 
 ```json
 {
@@ -93,15 +109,17 @@ Get details of a specific payment link.
 }
 ```
 
-### 3. List Payment Links
+---
+
+## List Payment Links
 
 Retrieve a paginated list of payment links.
 
-- **Method**: `GET`
-- **Path**: `/v1/payment-link`
-- **Rate Limit**: 100 requests per minute
+```
+GET /v1/payment-link
+```
 
-#### Query Parameters
+### Query Parameters
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -110,7 +128,7 @@ Retrieve a paginated list of payment links.
 | `branchId` | string | Filter by branch ID. |
 | `search` | string | Search by name or description. |
 
-#### Example Response (200 OK)
+### Example Response (200 OK)
 
 ```json
 {
@@ -133,15 +151,17 @@ Retrieve a paginated list of payment links.
 }
 ```
 
-### 4. Update Payment Link
+---
+
+## Update Payment Link
 
 Update an existing payment link.
 
-- **Method**: `PATCH`
-- **Path**: `/v1/payment-link/:id`
-- **Rate Limit**: 50 requests per minute
+```
+PATCH /v1/payment-link/:id
+```
 
-#### Request Body (Optional Fields)
+### Request Body (Optional Fields)
 
 | Field | Type | Description |
 |---|---|---|
@@ -154,7 +174,7 @@ Update an existing payment link.
 | `max_amount` | number | Max custom amount. |
 | `expiration_date` | string | Expiration date. |
 
-#### Example Request
+### Example Request
 
 ```json
 {
@@ -163,25 +183,29 @@ Update an existing payment link.
 }
 ```
 
-#### Example Response (200 OK)
+### Example Response (200 OK)
 
 Returns the updated payment link object.
 
-### 5. Deactivate Payment Link
+---
+
+## Deactivate Payment Link
 
 Deactivate (soft delete) a payment link. It will no longer accept new payments.
 
-- **Method**: `DELETE`
-- **Path**: `/v1/payment-link/:id`
-- **Rate Limit**: 50 requests per minute
+```
+DELETE /v1/payment-link/:id
+```
 
-#### Example Response (200 OK)
+### Example Response (200 OK)
 
 ```json
 {
   "message": "Payment link deactivated successfully"
 }
 ```
+
+---
 
 ## Error Codes
 

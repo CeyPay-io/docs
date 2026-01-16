@@ -3,6 +3,10 @@ title: "Payments API"
 description: "Create and manage crypto payments through CeyPay. Accept USDT payments from customers with real-time processing."
 ---
 
+# Payments API
+
+Create and manage crypto payments through CeyPay. This endpoint allows you to accept USDT payments from customers.
+
 ## Base URL
 
 ```
@@ -29,10 +33,10 @@ POST /v1/payment
 
 ### Authentication
 
-Requires [HMAC authentication](./authentication) with headers:
-- `x-api-key`: Your API key
+Requires [HMAC authentication](./authentication.md) with headers:
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
 - `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
 
 ### Request Body
 
@@ -69,7 +73,7 @@ Requires [HMAC authentication](./authentication) with headers:
 ```bash
 curl -X POST "https://api.ceypay.io/v1/payment" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123.sk_live_xyz789" \
+  -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1705315800000" \
   -H "x-signature: your_signature_here" \
   -d '{
@@ -204,7 +208,7 @@ GET /v1/payment/:id
 
 ```bash
 curl "https://api.ceypay.io/v1/payment/550e8400-e29b-41d4-a716-446655440000" \
-  -H "x-api-key: ak_live_abc123.sk_live_xyz789" \
+  -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1705315800000" \
   -H "x-signature: your_signature_here"
 ```
@@ -240,7 +244,7 @@ GET /v1/payment/list
 
 ```bash
 curl "https://api.ceypay.io/v1/payment/list?page=1&pageSize=20&status=PAID" \
-  -H "x-api-key: ak_live_abc123.sk_live_xyz789" \
+  -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1705315800000" \
   -H "x-signature: your_signature_here"
 ```
@@ -285,7 +289,7 @@ curl "https://api.ceypay.io/v1/payment/list?page=1&pageSize=20&status=PAID" \
 
 Set `webhookUrl` in your payment request to receive real-time status updates.
 
-See [Webhooks Guide](./webhooks) for payload format, signature verification, and retry policy.
+See [Webhooks Guide](./webhooks.md) for payload format, signature verification, and retry policy.
 
 ---
 
@@ -299,14 +303,14 @@ See [Webhooks Guide](./webhooks) for payload format, signature verification, and
 | 404 | Not Found | Payment not found |
 | 429 | Too Many Requests | Rate limit exceeded |
 
-See [Error Codes](./errors) for detailed error handling.
+See [Error Codes](./errors.md) for detailed error handling.
 
 ---
 
 ## Related Documentation
 
-- [Quick Start](./quickstart) - Getting started guide
-- [Authentication](./authentication) - HMAC signature details
-- [Webhooks](./webhooks) - Receive payment notifications
-- [Rate Limits](./rate-limits) - API rate limiting
-- [Errors](./errors) - Error codes reference
+- [Quick Start](./quickstart.md) - Getting started guide
+- [Authentication](./authentication.md) - HMAC signature details
+- [Webhooks](./webhooks.md) - Receive payment notifications
+- [Rate Limits](./rate-limits.md) - API rate limiting
+- [Errors](./errors.md) - Error codes reference
