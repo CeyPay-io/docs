@@ -2,6 +2,9 @@
     "$schema": "https://mintlify.com/docs.json",
     "theme": "mint",
     "name": "CeyPay",
+    "fonts": {
+        "family": "Lato"
+    },
     "colors": {
         "primary": "#1C6EF5",
         "light": "#5097FF",
@@ -46,7 +49,7 @@
                 ]
             },
             {
-                "tab": "API References",
+                "tab": "API Reference",
                 "groups": [
                     {
                         "group": "Getting Started",
