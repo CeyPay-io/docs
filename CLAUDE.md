@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a Mintlify-based documentation site for **CeyPay WordPress Plugin**—a WooCommerce payment gateway that enables online stores to accept cryptocurrency payments (Binance Pay, Bybit, Bitazza) and receive settlements in Sri Lankan Rupees (LKR).
+This is a Mintlify-based documentation site for **CeyPay WordPress Plugin**—a WooCommerce payment gateway that enables online stores to accept cryptocurrency payments (Bybit, Binance Pay, KuCoin) and receive settlements in Sri Lankan Rupees (LKR).
 
 ## Repository Structure
 
@@ -111,7 +111,7 @@ Key principles:
 The primary focus is documenting the **CeyPay WordPress Plugin** for WooCommerce merchants:
 
 1. **Target audience**: Store owners with basic WordPress knowledge, no crypto expertise required
-2. **Payment providers**: Binance Pay, Bybit, Bitazza (these are the three supported platforms)
+2. **Payment providers**: Bybit, Binance Pay, KuCoin (these are the three supported platforms)
 3. **Key concepts**:
    - Webhook endpoint: `https://yoursite.com/?wc-api=WC_Gateway_CeyPay`
    - HMAC-SHA256 signature verification for webhooks
@@ -123,7 +123,7 @@ The primary focus is documenting the **CeyPay WordPress Plugin** for WooCommerce
 
 - **API endpoint**: Always reference the correct webhook endpoint format
 - **Signature verification**: Webhook security uses HMAC-SHA256 with the merchant's webhook secret
-- **Payment flow**: Customer selects CeyPay → Choose provider (Binance/Bybit/Bitazza) → QR code/deep link → Real-time verification
+- **Payment flow**: Customer selects CeyPay → Choose provider (Bybit/Binance/KuCoin) → QR code/deep link → Real-time verification
 - **Order statuses**: Map payment statuses correctly (SUCCESS/PAID → Processing, FAILED/EXPIRED → Failed)
 
 ## Images and Assets
@@ -172,9 +172,9 @@ Update the following in `docs.json`:
 ### Payment Provider Integration
 
 CeyPay acts as an aggregator for three crypto payment providers:
-1. **Binance Pay**: Popular exchange wallet
-2. **Bybit**: Exchange wallet with deep linking support
-3. **Bitazza**: Regional crypto exchange
+1. **Bybit**: Exchange wallet with deep linking support
+2. **Binance Pay**: Popular exchange wallet
+3. **KuCoin**: Global cryptocurrency exchange
 
 The plugin generates provider-specific QR codes and deep links, then monitors payment status via:
 - **Webhooks**: Real-time notifications (primary method)

@@ -59,7 +59,7 @@ You have mastery in:
 ## Terminology
 
 **Consistent** - Use standardized terms throughout all documentation:
-- Payment provider (Binance Pay, Bybit, Bitazza) - NOT wallet, gateway, processor
+- Payment provider (Bybit, Binance Pay, KuCoin) - NOT wallet, gateway, processor
 - Webhook secret - NOT API secret, signing key
 - Merchant ID - NOT merchant key, account ID
 - Test mode - NOT sandbox mode, development mode
@@ -129,7 +129,7 @@ if (!hash_equals($signature, $expected_signature)) {
 
 **Customer journey** - Use customer-centric language for checkout flows:
 1. Customer selects CeyPay at checkout
-2. Customer chooses their payment provider (Binance Pay, Bybit, or Bitazza)
+2. Customer chooses their payment provider (Bybit, Binance Pay, or KuCoin)
 3. Customer scans the QR code or taps the deep link button
 4. Customer confirms payment in their wallet app
 5. CeyPay verifies payment and updates the order
@@ -164,10 +164,10 @@ if (!hash_equals($signature, $expected_signature)) {
 ## Payment Provider Names
 
 Always use official brand names:
-- ✅ Binance Pay
 - ✅ Bybit
-- ✅ Bitazza
-- ❌ Binance Wallet, Bybit Pay, Bitazza Wallet
+- ✅ Binance Pay
+- ✅ KuCoin
+- ❌ Bybit Pay, Binance Wallet, KuCoin Pay
 
 ## Webhook Endpoints
 
@@ -304,7 +304,7 @@ Before publishing any content, verify:
 "When a customer wants to pay, they'll be able to select CeyPay and then a modal will show up with different payment options and they can choose which one they want to use."
 
 **After:**
-"At checkout, the customer selects CeyPay as their payment method. A modal displays three payment providers: Binance Pay, Bybit, and Bitazza. The customer chooses their preferred provider to continue."
+"At checkout, the customer selects CeyPay as their payment method. A modal displays three payment providers: Bybit, Binance Pay, and KuCoin. The customer chooses their preferred provider to continue."
 
 ## Example 3: Webhook Security
 

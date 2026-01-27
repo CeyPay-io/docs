@@ -45,7 +45,23 @@ Thoroughly testing your payment integration is essential before going live. CeyP
   <Step title="Select Provider">
     In the modal that appears, select a crypto provider:
 
-    <CardGroup cols={2}>
+    <CardGroup cols={3}>
+      <Card>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+          <img
+            className="block dark:hidden"
+            src="/images/BybitPay.svg"
+            alt="Bybit"
+            style={{ height: "40px" }}
+          />
+          <img
+            className="hidden dark:block"
+            src="/images/BybitPay-Dark.svg"
+            alt="Bybit"
+            style={{ height: "40px" }}
+          />
+        </div>
+      </Card>
       <Card>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
           <img
@@ -66,14 +82,14 @@ Thoroughly testing your payment integration is essential before going live. CeyP
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
           <img
             className="block dark:hidden"
-            src="/images/BybitPay.svg"
-            alt="Bybit"
+            src="/images/Kucoin.svg"
+            alt="KuCoin"
             style={{ height: "40px" }}
           />
           <img
             className="hidden dark:block"
-            src="/images/BybitPay-Dark.svg"
-            alt="Bybit"
+            src="/images/Kucoin-Dark.svg"
+            alt="KuCoin"
             style={{ height: "40px" }}
           />
         </div>
@@ -104,7 +120,7 @@ Use this checklist to ensure your integration is working correctly:
   </Accordion>
   <Accordion title="Payment Modal">
     - [ ] Modal opens after clicking "Place Order" - [ ] All providers are
-    displayed (Binance, Bybit, Kucoin etc) - [ ] Provider selection works
+    displayed (Bybit, Binance, KuCoin) - [ ] Provider selection works
     correctly - [ ] QR code loads after selecting a provider - [ ] "Simulate
     Success" button appears in Test Mode
   </Accordion>

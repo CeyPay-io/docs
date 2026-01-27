@@ -16,7 +16,7 @@ Access CeyPay settings by navigating to **WooCommerce > Settings > Payments > Ce
   The text displayed to customers when they select CeyPay at checkout. Use this to explain the payment process or highlight benefits.
 
   **Example descriptions:**
-  - "Pay with crypto using Bybit Pay or Binance Pay"
+  - "Pay with crypto using Bybit, Binance Pay, or KuCoin"
   - "Secure cryptocurrency payment - no fees for customers"
 </ResponseField>
 
@@ -73,7 +73,30 @@ When Test Mode is active:
 
 CeyPay supports the following cryptocurrency payment providers:
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
+  <Card>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+      }}
+    >
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
   <Card>
     <div
       style={{
@@ -108,14 +131,14 @@ CeyPay supports the following cryptocurrency payment providers:
     >
       <img
         className="block dark:hidden"
-        src="/images/BybitPay.svg"
-        alt="Bybit"
+        src="/images/Kucoin.svg"
+        alt="KuCoin"
         style={{ height: "40px" }}
       />
       <img
         className="hidden dark:block"
-        src="/images/BybitPay-Dark.svg"
-        alt="Bybit"
+        src="/images/Kucoin-Dark.svg"
+        alt="KuCoin"
         style={{ height: "40px" }}
       />
     </div>

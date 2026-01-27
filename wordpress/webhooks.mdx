@@ -125,13 +125,29 @@ The following metadata is stored on each order:
 | Meta Key | Description |
 |----------|-------------|
 | `_ceypay_transaction_id` | CeyPay transaction identifier |
-| `_ceypay_provider` | Selected payment provider (BINANCE, BYBIT) |
+| `_ceypay_provider` | Selected payment provider (BYBIT, BINANCE, KUCOIN) |
 | `_ceypay_qr_code_url` | QR code content URL |
 | `_ceypay_deep_link` | Deep link URL for mobile wallets |
 
 **Available Providers:**
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
+  <Card>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+      <img
+        className="block dark:hidden"
+        src="/images/BybitPay.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/BybitPay-Dark.svg"
+        alt="Bybit"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
   <Card>
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
       <img
@@ -152,14 +168,14 @@ The following metadata is stored on each order:
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
       <img
         className="block dark:hidden"
-        src="/images/BybitPay.svg"
-        alt="Bybit"
+        src="/images/Kucoin.svg"
+        alt="KuCoin"
         style={{ height: "40px" }}
       />
       <img
         className="hidden dark:block"
-        src="/images/BybitPay-Dark.svg"
-        alt="Bybit"
+        src="/images/Kucoin-Dark.svg"
+        alt="KuCoin"
         style={{ height: "40px" }}
       />
     </div>

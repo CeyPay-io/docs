@@ -56,7 +56,7 @@ CeyPay is a comprehensive cryptocurrency payment platform built for Sri Lankan b
 
 <Note>
   CeyPay integrates with major crypto wallets and blockchain networks including
-  Binance Pay, Bybit, and Solana.
+  Bybit, Binance Pay, KuCoin, and Solana.
 </Note>
 
 ## WordPress Plugin for WooCommerce
@@ -65,7 +65,7 @@ This documentation covers the **CeyPay WordPress Plugin**, the easiest way to ac
 
 With just a few clicks, you can:
 
-- ✅ Accept payments from Binance Pay and Bybit Pay
+- ✅ Accept payments from Bybit, Binance Pay, and KuCoin
 - ✅ Automatically convert crypto to LKR
 - ✅ Receive instant payment notifications
 - ✅ Provide a seamless checkout experience
@@ -122,13 +122,36 @@ With just a few clicks, you can:
       />
     </div>
   </Card>
+  <Card>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+      }}
+    >
+      <img
+        className="block dark:hidden"
+        src="/images/Kucoin.svg"
+        alt="KuCoin"
+        style={{ height: "40px" }}
+      />
+      <img
+        className="hidden dark:block"
+        src="/images/Kucoin-Dark.svg"
+        alt="KuCoin"
+        style={{ height: "40px" }}
+      />
+    </div>
+  </Card>
 </CardGroup>
 
 ## Key Features
 
 <CardGroup cols={2}>
   <Card title="Multi-Provider Support" icon="wallet">
-    Accept payments from Binance Pay and Bybit. Customers choose their preferred
+    Accept payments from Bybit, Binance Pay, and KuCoin. Customers choose their preferred
     crypto wallet at checkout.
   </Card>
   <Card title="Real-Time Verification" icon="bolt">
@@ -159,7 +182,7 @@ With just a few clicks, you can:
   </Step>
   <Step title="Choose Crypto Provider">
     A modal appears where the customer selects their preferred crypto wallet
-    (Binance or Bybit).
+    (Bybit, Binance, or KuCoin).
   </Step>
   <Step title="Scan QR Code">
     A QR code is generated for the selected provider. On mobile, a deep link
@@ -185,7 +208,7 @@ https://yoursite.com/?wc-api=WC_Gateway_CeyPay
 
 <Tip>
   This endpoint is automatically configured by the plugin. All payment
-  confirmations from Binance Pay and Bybit are securely delivered to this URL
+  confirmations from Bybit, Binance Pay, and KuCoin are securely delivered to this URL
   with HMAC-SHA256 signature verification.
 </Tip>
 
