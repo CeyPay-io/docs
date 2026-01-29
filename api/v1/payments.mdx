@@ -3,19 +3,13 @@ title: "Payments API"
 description: "Create and manage crypto payments through CeyPay. Accept USDT payments from customers with real-time processing."
 ---
 
-## Base URL
-
-```
-https://api.ceypay.io
-```
-
 ## Endpoints
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/v1/payment` | Create a new payment | 100 req/min |
-| GET | `/v1/payment/:id` | Get payment details | 300 req/min |
-| GET | `/v1/payment/list` | List payments | 200 req/min |
+| Method | Endpoint           | Description          | Rate Limit  |
+| ------ | ------------------ | -------------------- | ----------- |
+| POST   | `/v1/payment`      | Create a new payment | 100 req/min |
+| GET    | `/v1/payment/:id`  | Get payment details  | 300 req/min |
+| GET    | `/v1/payment/list` | List payments        | 200 req/min |
 
 ---
 
@@ -30,34 +24,35 @@ POST /v1/payment
 ### Authentication
 
 Requires [HMAC authentication](./authentication.md) with headers:
+
 - `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
 - `x-timestamp`: Current Unix timestamp in milliseconds
 - `x-signature`: HMAC-SHA256 signature (using derived signing key)
 
 ### Request Body
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `amount` | number | Yes | Payment amount (minimum 0) |
-| `currency` | string | Yes | Currency code: `USDT` or `LKR` |
-| `provider` | string | Yes | Payment provider: `BYBIT` or `BINANCE` |
-| `goods` | array | Yes | Array of goods/products being purchased |
-| `goods[].name` | string | Yes | Product name |
-| `goods[].description` | string | Yes | Product description |
-| `goods[].mccCode` | string | No | Merchant Category Code (default: `5818`) |
-| `branchId` | string (UUID) | No | Branch ID for multi-branch merchants |
-| `orderExpireTime` | string | No | Expiration time (Unix timestamp in seconds) |
-| `webhookUrl` | string | No | URL to receive payment status updates |
-| `merchantTradeNo` | string | No | Your internal order reference |
-| `customerBilling` | object | Yes | Customer billing details |
-| `customerBilling.firstName` | string | Yes | Customer first name |
-| `customerBilling.lastName` | string | Yes | Customer last name |
-| `customerBilling.email` | string | Yes | Customer email |
-| `customerBilling.phone` | string | Yes | Customer phone |
-| `customerBilling.address` | string | Yes | Street address |
-| `customerBilling.city` | string | No | City |
-| `customerBilling.postalCode` | string | No | Postal/ZIP code |
-| `customerBilling.country` | string | No | Country |
+| Field                        | Type          | Required | Description                                 |
+| ---------------------------- | ------------- | -------- | ------------------------------------------- |
+| `amount`                     | number        | Yes      | Payment amount (minimum 0)                  |
+| `currency`                   | string        | Yes      | Currency code: `USDT` or `LKR`              |
+| `provider`                   | string        | Yes      | Payment provider: `BYBIT` or `BINANCE`      |
+| `goods`                      | array         | Yes      | Array of goods/products being purchased     |
+| `goods[].name`               | string        | Yes      | Product name                                |
+| `goods[].description`        | string        | Yes      | Product description                         |
+| `goods[].mccCode`            | string        | No       | Merchant Category Code (default: `5818`)    |
+| `branchId`                   | string (UUID) | No       | Branch ID for multi-branch merchants        |
+| `orderExpireTime`            | string        | No       | Expiration time (Unix timestamp in seconds) |
+| `webhookUrl`                 | string        | No       | URL to receive payment status updates       |
+| `merchantTradeNo`            | string        | No       | Your internal order reference               |
+| `customerBilling`            | object        | Yes      | Customer billing details                    |
+| `customerBilling.firstName`  | string        | Yes      | Customer first name                         |
+| `customerBilling.lastName`   | string        | Yes      | Customer last name                          |
+| `customerBilling.email`      | string        | Yes      | Customer email                              |
+| `customerBilling.phone`      | string        | Yes      | Customer phone                              |
+| `customerBilling.address`    | string        | Yes      | Street address                              |
+| `customerBilling.city`       | string        | No       | City                                        |
+| `customerBilling.postalCode` | string        | No       | Postal/ZIP code                             |
+| `customerBilling.country`    | string        | No       | Country                                     |
 
 ### Currency Handling
 
@@ -125,7 +120,7 @@ curl -X POST "https://api.ceypay.io/v1/payment" \
   "feeBreakdown": {
     "grossAmountUSDT": 149.99,
     "exchangeFeePercentage": 1.0,
-    "exchangeFeeAmountUSDT": 1.50,
+    "exchangeFeeAmountUSDT": 1.5,
     "ceypayFeePercentage": 0.5,
     "ceypayFeeAmountUSDT": 0.75,
     "totalFeesUSDT": 2.25,
@@ -136,23 +131,23 @@ curl -X POST "https://api.ceypay.io/v1/payment" \
 
 ### Response Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique payment ID |
-| `merchantId` | string | Your merchant ID |
-| `payId` | string | Payment provider's payment ID |
-| `paymentNo` | string | Merchant trade number |
-| `amount` | number | Payment amount in USDT |
-| `currency` | string | Currency code (always USDT for processing) |
-| `status` | string | Payment status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
-| `qrContent` | string | QR code content for mobile wallet scanning |
-| `checkoutLink` | string | Web checkout URL to redirect customers |
-| `goods` | array | Products/services in this payment |
-| `customerBilling` | object | Customer billing details (if provided) |
-| `paymentProvider` | string | Payment provider used |
-| `expireTime` | string | When the payment expires (ISO 8601) |
-| `createdAt` | string | When the payment was created (ISO 8601) |
-| `feeBreakdown` | object | Fee breakdown details |
+| Field             | Type   | Description                                              |
+| ----------------- | ------ | -------------------------------------------------------- |
+| `id`              | string | Unique payment ID                                        |
+| `merchantId`      | string | Your merchant ID                                         |
+| `payId`           | string | Payment provider's payment ID                            |
+| `paymentNo`       | string | Merchant trade number                                    |
+| `amount`          | number | Payment amount in USDT                                   |
+| `currency`        | string | Currency code (always USDT for processing)               |
+| `status`          | string | Payment status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
+| `qrContent`       | string | QR code content for mobile wallet scanning               |
+| `checkoutLink`    | string | Web checkout URL to redirect customers                   |
+| `goods`           | array  | Products/services in this payment                        |
+| `customerBilling` | object | Customer billing details (if provided)                   |
+| `paymentProvider` | string | Payment provider used                                    |
+| `expireTime`      | string | When the payment expires (ISO 8601)                      |
+| `createdAt`       | string | When the payment was created (ISO 8601)                  |
+| `feeBreakdown`    | object | Fee breakdown details                                    |
 
 ### LKR Payment Response
 
@@ -164,24 +159,24 @@ When creating a payment in LKR, additional fields are returned:
   "amount": 101.52,
   "currency": "USDT",
   "usdtAmount": 101.52,
-  "exchangeRateSnapshot": 295.50,
-  "lkrGrossAmount": 30000.00,
-  "lkrExchangeFeeAmount": 750.00,
-  "lkrCeypayFeeAmount": 300.00,
-  "lkrNetAmount": 28950.00,
+  "exchangeRateSnapshot": 295.5,
+  "lkrGrossAmount": 30000.0,
+  "lkrExchangeFeeAmount": 750.0,
+  "lkrCeypayFeeAmount": 300.0,
+  "lkrNetAmount": 28950.0,
   "feeBreakdown": {
     "grossAmountUSDT": 101.52,
-    "grossAmountLKR": 30000.00,
+    "grossAmountLKR": 30000.0,
     "exchangeFeePercentage": 2.5,
     "exchangeFeeAmountUSDT": 2.54,
-    "exchangeFeeAmountLKR": 750.00,
+    "exchangeFeeAmountLKR": 750.0,
     "ceypayFeePercentage": 1.0,
     "ceypayFeeAmountUSDT": 1.02,
-    "ceypayFeeAmountLKR": 300.00,
+    "ceypayFeeAmountLKR": 300.0,
     "totalFeesUSDT": 3.56,
-    "totalFeesLKR": 1050.00,
+    "totalFeesLKR": 1050.0,
     "netAmountUSDT": 97.96,
-    "netAmountLKR": 28950.00
+    "netAmountLKR": 28950.0
   }
 }
 ```
@@ -198,9 +193,9 @@ GET /v1/payment/:id
 
 ### Path Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Payment ID |
+| Parameter | Type   | Description |
+| --------- | ------ | ----------- |
+| `id`      | string | Payment ID  |
 
 ### Example Request
 
@@ -213,10 +208,10 @@ curl "https://api.ceypay.io/v1/payment/550e8400-e29b-41d4-a716-446655440000" \
 
 ### Error Responses
 
-| Status | Description |
-|--------|-------------|
-| 403 | Payment does not belong to your merchant account |
-| 404 | Payment not found |
+| Status | Description                                      |
+| ------ | ------------------------------------------------ |
+| 403    | Payment does not belong to your merchant account |
+| 404    | Payment not found                                |
 
 ---
 
@@ -230,13 +225,13 @@ GET /v1/payment/list
 
 ### Query Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | number | 1 | Page number |
-| `pageSize` | number | 20 | Items per page |
-| `status` | string | - | Filter by status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
-| `dateRange` | string | - | Date range preset: `last7`, `last30`, `last90`, `custom` |
-| `search` | string | - | Search by payment ID or customer info |
+| Parameter   | Type   | Default | Description                                                |
+| ----------- | ------ | ------- | ---------------------------------------------------------- |
+| `page`      | number | 1       | Page number                                                |
+| `pageSize`  | number | 20      | Items per page                                             |
+| `status`    | string | -       | Filter by status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
+| `dateRange` | string | -       | Date range preset: `last7`, `last30`, `last90`, `custom`   |
+| `search`    | string | -       | Search by payment ID or customer info                      |
 
 ### Example Request
 
@@ -274,12 +269,12 @@ curl "https://api.ceypay.io/v1/payment/list?page=1&pageSize=20&status=PAID" \
 
 ## Payment Status
 
-| Status | Description |
-|--------|-------------|
-| `INITIATED` | Payment created, awaiting customer payment |
-| `PAID` | Customer completed payment successfully |
-| `EXPIRED` | Payment expired before customer paid |
-| `FAILED` | Payment failed (network error, insufficient funds, etc.) |
+| Status      | Description                                              |
+| ----------- | -------------------------------------------------------- |
+| `INITIATED` | Payment created, awaiting customer payment               |
+| `PAID`      | Customer completed payment successfully                  |
+| `EXPIRED`   | Payment expired before customer paid                     |
+| `FAILED`    | Payment failed (network error, insufficient funds, etc.) |
 
 ---
 
@@ -293,13 +288,13 @@ See [Webhooks Guide](./webhooks.md) for payload format, signature verification, 
 
 ## Error Responses
 
-| Status | Error | Description |
-|--------|-------|-------------|
-| 400 | Bad Request | Invalid request body or validation error |
-| 401 | Unauthorized | Invalid API key or signature |
-| 403 | Forbidden | Payment belongs to another merchant |
-| 404 | Not Found | Payment not found |
-| 429 | Too Many Requests | Rate limit exceeded |
+| Status | Error             | Description                              |
+| ------ | ----------------- | ---------------------------------------- |
+| 400    | Bad Request       | Invalid request body or validation error |
+| 401    | Unauthorized      | Invalid API key or signature             |
+| 403    | Forbidden         | Payment belongs to another merchant      |
+| 404    | Not Found         | Payment not found                        |
+| 429    | Too Many Requests | Rate limit exceeded                      |
 
 See [Error Codes](./errors.md) for detailed error handling.
 
@@ -312,4 +307,3 @@ See [Error Codes](./errors.md) for detailed error handling.
 - [Webhooks](./webhooks.md) - Receive payment notifications
 - [Rate Limits](./rate-limits.md) - API rate limiting
 - [Errors](./errors.md) - Error codes reference
-

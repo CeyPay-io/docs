@@ -3,21 +3,15 @@ title: "Payment Links API"
 description: "Accept payments without full checkout integration. Generate reusable or single-use payment links and share them via email, SMS, or social media."
 ---
 
-## Base URL
-
-```
-https://api.ceypay.io
-```
-
 ## Endpoints
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| POST | `/v1/payment-link` | Create a new payment link | 50 req/min |
-| GET | `/v1/payment-link/:id` | Get payment link details | 100 req/min |
-| GET | `/v1/payment-link/list` | List payment links | 100 req/min |
-| PATCH | `/v1/payment-link/:id` | Update a payment link | 50 req/min |
-| DELETE | `/v1/payment-link/:id` | Deactivate a payment link | 50 req/min |
+| Method | Endpoint                | Description               | Rate Limit  |
+| ------ | ----------------------- | ------------------------- | ----------- |
+| POST   | `/v1/payment-link`      | Create a new payment link | 50 req/min  |
+| GET    | `/v1/payment-link/:id`  | Get payment link details  | 100 req/min |
+| GET    | `/v1/payment-link/list` | List payment links        | 100 req/min |
+| PATCH  | `/v1/payment-link/:id`  | Update a payment link     | 50 req/min  |
+| DELETE | `/v1/payment-link/:id`  | Deactivate a payment link | 50 req/min  |
 
 ---
 
@@ -49,18 +43,18 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
 
 ### Request Body
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | Yes | Name of the payment link. |
-| `description` | string | No | Description of the payment. |
-| `amount` | number | No* | Fixed amount. Required if `allow_custom_amount` is false. |
-| `currency` | string | Yes | Currency code (e.g., `USDT`, `LKR`). |
-| `allow_custom_amount` | boolean | Yes | Whether to allow customers to enter a custom amount. Default: `false`. |
-| `min_amount` | number | No* | Minimum amount for custom payments. Required if `allow_custom_amount` is true. |
-| `max_amount` | number | No* | Maximum amount for custom payments. Required if `allow_custom_amount` is true. |
-| `reusable` | boolean | No | Whether the link can be used multiple times. Default: `true`. |
-| `expiration_date` | string | No | Expiration date in ISO 8601 format. |
-| `branchId` | string | No | Branch ID to associate with. |
+| Field                 | Type    | Required | Description                                                                    |
+| --------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
+| `name`                | string  | Yes      | Name of the payment link.                                                      |
+| `description`         | string  | No       | Description of the payment.                                                    |
+| `amount`              | number  | No\*     | Fixed amount. Required if `allow_custom_amount` is false.                      |
+| `currency`            | string  | Yes      | Currency code (e.g., `USDT`, `LKR`).                                           |
+| `allow_custom_amount` | boolean | Yes      | Whether to allow customers to enter a custom amount. Default: `false`.         |
+| `min_amount`          | number  | No\*     | Minimum amount for custom payments. Required if `allow_custom_amount` is true. |
+| `max_amount`          | number  | No\*     | Maximum amount for custom payments. Required if `allow_custom_amount` is true. |
+| `reusable`            | boolean | No       | Whether the link can be used multiple times. Default: `true`.                  |
+| `expiration_date`     | string  | No       | Expiration date in ISO 8601 format.                                            |
+| `branchId`            | string  | No       | Branch ID to associate with.                                                   |
 
 ### Example Response (201 Created)
 
@@ -140,12 +134,12 @@ curl "https://api.ceypay.io/v1/payment-link/list?page=1&pageSize=20" \
 
 ### Query Parameters
 
-| Parameter | Type | Description |
-|---|---|---|
-| `page` | number | Page number (default: 1). |
-| `pageSize` | number | Items per page (default: 20). |
-| `branchId` | string | Filter by branch ID. |
-| `search` | string | Search by name or description. |
+| Parameter  | Type   | Description                    |
+| ---------- | ------ | ------------------------------ |
+| `page`     | number | Page number (default: 1).      |
+| `pageSize` | number | Items per page (default: 20).  |
+| `branchId` | string | Filter by branch ID.           |
+| `search`   | string | Search by name or description. |
 
 ### Example Response (200 OK)
 
@@ -196,16 +190,16 @@ curl -X PATCH "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446
 
 ### Request Body (Optional Fields)
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | string | Name of the payment link. |
-| `description` | string | Description. |
-| `amount` | number | Fixed amount. |
-| `currency` | string | Currency code. |
-| `allow_custom_amount` | boolean | Allow custom amount. |
-| `min_amount` | number | Min custom amount. |
-| `max_amount` | number | Max custom amount. |
-| `expiration_date` | string | Expiration date. |
+| Field                 | Type    | Description               |
+| --------------------- | ------- | ------------------------- |
+| `name`                | string  | Name of the payment link. |
+| `description`         | string  | Description.              |
+| `amount`              | number  | Fixed amount.             |
+| `currency`            | string  | Currency code.            |
+| `allow_custom_amount` | boolean | Allow custom amount.      |
+| `min_amount`          | number  | Min custom amount.        |
+| `max_amount`          | number  | Max custom amount.        |
+| `expiration_date`     | string  | Expiration date.          |
 
 ### Example Response (200 OK)
 
@@ -242,10 +236,10 @@ curl -X DELETE "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-44
 
 ## Error Codes
 
-| Status | Description |
-|---|---|
-| 400 | Bad Request - Invalid data. |
-| 401 | Unauthorized - Invalid signature. |
-| 403 | Forbidden - Access denied. |
-| 404 | Not Found - Payment link not found. |
-| 429 | Too Many Requests - Rate limit exceeded. |
+| Status | Description                              |
+| ------ | ---------------------------------------- |
+| 400    | Bad Request - Invalid data.              |
+| 401    | Unauthorized - Invalid signature.        |
+| 403    | Forbidden - Access denied.               |
+| 404    | Not Found - Payment link not found.      |
+| 429    | Too Many Requests - Rate limit exceeded. |
