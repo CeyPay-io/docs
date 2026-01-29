@@ -24,6 +24,41 @@ mode: "api"
 
 ---
 
+## Base URL
+
+<CardGroup cols={1}>
+  <Card title="Production" icon="rocket">
+    Live environment for real transactions
+
+    ```
+    https://api.ceypay.io
+    ```
+  </Card>
+
+  <Card title="Sandbox" icon="flask">
+    Test environment for integration testing
+
+    ```
+    https://sandbox.ceypay.io
+    ```
+  </Card>
+</CardGroup>
+
+<Note>
+  **Getting Started**
+
+If you want to integrate CeyPay without signing up for a sandbox account, use the sandbox API key below.
+
+**Sandbox API Key:**
+
+```
+ak_live_d86855bbd8651fcb5f469203621c88e3.sk_live_6985fca378cd894dee359813bd6bb12f4a2922bc81f023f0d062631e3190ff3e
+```
+
+Remember: The `x-api-key` header should contain ONLY the key ID (the part before the dot), NOT the full API key. The secret key is used locally to derive the signing key and is never transmitted.
+
+</Note>
+
 ## Get Started
 
 <Steps>
@@ -40,6 +75,7 @@ mode: "api"
     - `sk_live_def456uvw` - Secret key (used locally to derive signing key, NEVER transmitted)
 
     **Important**: Store your API key securely (environment variable, secrets manager, etc.)
+
   </Step>
 
   <Step title="Make Your First API Call">
@@ -50,44 +86,44 @@ mode: "api"
     <CodeGroup>
 
 ```javascript Node.js
-const crypto = require('crypto');
-const axios = require('axios');
+const crypto = require("crypto");
+const axios = require("axios");
 
 // Your API key (store in environment variable)
 const API_KEY = process.env.CEYPAY_API_KEY; // e.g., ak_live_xxx.sk_live_yyy
-const [keyId, secret] = API_KEY.split('.');
+const [keyId, secret] = API_KEY.split(".");
 
 // Derive signing key from secret (do this once)
-const signingKey = crypto.createHash('sha256').update(secret).digest('hex');
+const signingKey = crypto.createHash("sha256").update(secret).digest("hex");
 
 // Create payment
 async function createPayment() {
   const timestamp = Date.now().toString();
-  const method = 'POST';
-  const path = '/v1/payment';
+  const method = "POST";
+  const path = "/v1/payment";
 
   const body = JSON.stringify({
     amount: 100,
-    currency: 'USDT',
+    currency: "USDT",
     goods: [
       {
-        name: 'Premium Plan',
-        description: 'Monthly subscription to premium features'
-      }
+        name: "Premium Plan",
+        description: "Monthly subscription to premium features",
+      },
     ],
     customerBilling: {
-      email: 'customer@example.com',
-      firstName: 'John',
-      lastName: 'Doe'
-    }
+      email: "customer@example.com",
+      firstName: "John",
+      lastName: "Doe",
+    },
   });
 
   // Generate signature using derived key (NOT raw secret)
   const message = timestamp + method + path + body;
   const signature = crypto
-    .createHmac('sha256', signingKey)
+    .createHmac("sha256", signingKey)
     .update(message)
-    .digest('hex');
+    .digest("hex");
 
   // Make request - send ONLY key ID, not full API key
   const response = await axios.post(
@@ -95,17 +131,17 @@ async function createPayment() {
     JSON.parse(body),
     {
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': keyId,  // Only the key ID!
-        'x-timestamp': timestamp,
-        'x-signature': signature
-      }
-    }
+        "Content-Type": "application/json",
+        "x-api-key": keyId, // Only the key ID!
+        "x-timestamp": timestamp,
+        "x-signature": signature,
+      },
+    },
   );
 
-  console.log('Payment created:', response.data);
-  console.log('Checkout link:', response.data.checkoutLink);
-  console.log('QR code:', response.data.qrContent);
+  console.log("Payment created:", response.data);
+  console.log("Checkout link:", response.data.checkoutLink);
+  console.log("QR code:", response.data.qrContent);
 
   return response.data;
 }
@@ -254,6 +290,7 @@ curl -X POST "https://api.ceypay.io${PATH}" \
     <Tip>
       Save the `id` and `qrContent` from the response. You'll need them to direct customers to payment.
     </Tip>
+
   </Step>
 
   <Step title="Direct Customer to Payment">
@@ -277,14 +314,15 @@ curl -X POST "https://api.ceypay.io${PATH}" \
         ```
       </Card>
     </CardGroup>
+
   </Step>
 
   <Step title="Handle Webhook Notifications">
     Set up a webhook endpoint to receive payment status updates. CeyPay uses **ED25519** signatures for security.
 
 ```javascript
-const express = require('express');
-const crypto = require('crypto');
+const express = require("express");
+const crypto = require("crypto");
 const app = express();
 
 const CEYPAY_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
@@ -292,12 +330,12 @@ MCowBQYDK2VwAyEAs+hotF0u5tdoATwAIezK58lzfMZIoKDTlRgoUU+6Qr4=
 -----END PUBLIC KEY-----`;
 
 // Use raw body for signature verification
-app.use('/webhooks/ceypay', express.raw({ type: 'application/json' }));
+app.use("/webhooks/ceypay", express.raw({ type: "application/json" }));
 
-app.post('/webhooks/ceypay', (req, res) => {
-  const signature = req.headers['x-webhook-signature'];
-  const timestamp = req.headers['x-webhook-timestamp'];
-  const rawBody = req.body.toString('utf8');
+app.post("/webhooks/ceypay", (req, res) => {
+  const signature = req.headers["x-webhook-signature"];
+  const timestamp = req.headers["x-webhook-timestamp"];
+  const rawBody = req.body.toString("utf8");
 
   // Verify signature using ED25519
   const message = timestamp + rawBody;
@@ -307,29 +345,30 @@ app.post('/webhooks/ceypay', (req, res) => {
       null,
       Buffer.from(message),
       CEYPAY_PUBLIC_KEY,
-      Buffer.from(signature, 'base64')
+      Buffer.from(signature, "base64"),
     );
 
     if (!isValid) {
-      return res.status(401).send('Invalid signature');
+      return res.status(401).send("Invalid signature");
     }
   } catch (err) {
-    return res.status(401).send('Invalid signature');
+    return res.status(401).send("Invalid signature");
   }
 
   // Process webhook
   const payload = JSON.parse(rawBody);
-  if (payload.status === 'PAID') {
-    console.log('Payment successful! Fulfill order:', payload.paymentId);
+  if (payload.status === "PAID") {
+    console.log("Payment successful! Fulfill order:", payload.paymentId);
   }
 
   res.status(200).json({ received: true });
 });
 
-app.listen(3000, () => console.log('Webhook server running on port 3000'));
+app.listen(3000, () => console.log("Webhook server running on port 3000"));
 ```
 
     See [webhooks.md](./webhooks.md) for complete webhook integration guide.
+
   </Step>
 </Steps>
 
@@ -371,17 +410,17 @@ curl -X POST https://api.ceypay.io/v1/webhooks/test \
 // Create payment from shopping cart
 const payment = await createPayment({
   amount: cart.total,
-  currency: 'USDT',
-  goods: cart.items.map(item => ({
+  currency: "USDT",
+  goods: cart.items.map((item) => ({
     name: item.name,
-    description: item.description
+    description: item.description,
   })),
   customerBilling: {
     email: customer.email,
     firstName: customer.firstName,
-    lastName: customer.lastName
+    lastName: customer.lastName,
   },
-  webhookUrl: 'https://mystore.com/api/webhooks/payment'
+  webhookUrl: "https://mystore.com/api/webhooks/payment",
 });
 
 // Redirect to checkout
@@ -393,15 +432,15 @@ res.redirect(payment.checkoutLink);
 ```javascript
 // Create reusable payment link
 const paymentLink = await createPaymentLink({
-  name: 'Premium Plan - Monthly',
-  description: 'Subscription to premium features',
+  name: "Premium Plan - Monthly",
+  description: "Subscription to premium features",
   amount: 49.99,
-  currency: 'USDT',
-  reusable: true
+  currency: "USDT",
+  reusable: true,
 });
 
 // Share the link
-console.log('Payment link:', `https://pay.ceypay.io/${paymentLink.slug}`);
+console.log("Payment link:", `https://pay.ceypay.io/${paymentLink.slug}`);
 ```
 
 ### Invoice Payment
@@ -410,18 +449,18 @@ console.log('Payment link:', `https://pay.ceypay.io/${paymentLink.slug}`);
 // Create single-use payment link for invoice
 const invoice = await createPaymentLink({
   name: `Invoice #${invoiceNumber}`,
-  description: 'Web development services',
+  description: "Web development services",
   amount: invoiceAmount,
-  currency: 'USDT',
+  currency: "USDT",
   reusable: false,
-  expirationDate: '2025-02-28T23:59:59Z'
+  expirationDate: "2025-02-28T23:59:59Z",
 });
 
 // Email invoice link to customer
 sendEmail({
   to: customer.email,
   subject: `Invoice #${invoiceNumber}`,
-  body: `Pay your invoice: ${invoice.checkoutUrl}`
+  body: `Pay your invoice: ${invoice.checkoutUrl}`,
 });
 ```
 
@@ -439,7 +478,11 @@ sendEmail({
   <Card title="Payment Links" icon="link" href="/api/v1/payment-links">
     Guide to using payment links
   </Card>
-  <Card title="Error Handling" icon="triangle-exclamation" href="/api/v1/errors">
+  <Card
+    title="Error Handling"
+    icon="triangle-exclamation"
+    href="/api/v1/errors"
+  >
     Error codes and troubleshooting
   </Card>
   <Card title="Rate Limits" icon="gauge-high" href="/api/v1/rate-limits">
@@ -450,20 +493,23 @@ sendEmail({
 ### Explore API Endpoints
 
 **Payments**:
-  - `POST` `/v1/payment` - Create payment
-  - `GET` `/v1/payment/:id` - Get payment details
-  - `GET` `/v1/payment` - List payments
+
+- `POST` `/v1/payment` - Create payment
+- `GET` `/v1/payment/:id` - Get payment details
+- `GET` `/v1/payment` - List payments
 
 **Payment Links**:
-  - `POST` `/v1/payment-link` - Create payment link
-  - `GET` `/v1/payment-link/:id` - Get payment link
-  - `GET` `/v1/payment-link` - List payment links
-  - `PATCH` `/v1/payment-link/:id` - Update payment link
-  - `DELETE` `/v1/payment-link/:id` - Deactivate payment link
+
+- `POST` `/v1/payment-link` - Create payment link
+- `GET` `/v1/payment-link/:id` - Get payment link
+- `GET` `/v1/payment-link` - List payment links
+- `PATCH` `/v1/payment-link/:id` - Update payment link
+- `DELETE` `/v1/payment-link/:id` - Deactivate payment link
 
 **Webhooks**:
-  - `GET` `/v1/webhooks/config` - Get webhook configuration
-  - `POST` `/v1/webhooks/test` - Test webhook delivery
+
+- `GET` `/v1/webhooks/config` - Get webhook configuration
+- `POST` `/v1/webhooks/test` - Test webhook delivery
 
 ### API Reference
 
@@ -493,6 +539,7 @@ Before going live, ensure you:
 ## Tips
 
 ### Security
+
 - Never commit API keys to version control
 - Use environment variables for secrets
 - Always verify webhook signatures
@@ -500,12 +547,14 @@ Before going live, ensure you:
 - Send only the key ID in `x-api-key`, never the full API key
 
 ### Performance
+
 - Cache exchange rates when possible
 - Implement idempotent webhook handling
 - Use exponential backoff for retries
 - Monitor rate limit headers
 
 ### Testing
+
 - Use ngrok for local webhook testing
 - Create test payments regularly
 - Monitor webhook delivery logs
