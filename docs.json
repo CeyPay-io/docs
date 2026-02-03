@@ -1,6 +1,6 @@
 {
     "$schema": "https://mintlify.com/docs.json",
-    "theme": "mint",
+    "theme": "aspen",
     "name": "CeyPay",
     "fonts": {
         "family": "Lato"
@@ -10,46 +10,72 @@
         "light": "#5097FF",
         "dark": "#1C6EF5"
     },
+    "topbarLinks": [
+        {
+            "name": "Dashboard",
+            "url": "https://merchant.ceypay.io"
+        }
+    ],
+    "topbarCtaButton": {
+        "type": "github",
+        "url": "https://github.com/CeyPay-io"
+    },
     "favicon": "/favicon.ico",
     "logo": {
         "light": "/logo/CeyPayLongLight.svg",
         "dark": "/logo/CeyPayLongDark.svg"
     },
+    "metadata": {
+        "og:site_name": "CeyPay Documentation",
+        "og:type": "website",
+        "twitter:site": "@ceypayintern"
+    },
+    "feedback": {
+        "suggestEdit": true,
+        "raiseIssue": true,
+        "thumbsRating": true
+    },
+    "search": {
+        "prompt": "Search CeyPay docs..."
+    },
+    "modeToggle": {
+        "default": "system"
+    },
     "navigation": {
         "tabs": [
             {
-                "tab": "Guides",
+                "tab": "Docs",
+                "icon": "compass",
                 "groups": [
                     {
                         "group": "Getting Started",
-                        "pages": ["index"]
+                        "pages": ["/introduction"]
                     },
                     {
-                        "group": "Integration",
+                        "group": "Integrations",
                         "pages": [
                             {
-                                "group": "Ecommerce",
+                                "group": "WordPress",
                                 "pages": [
-                                    {
-                                        "group": "WordPress",
-                                        "pages": ["wordpress/introduction", "wordpress/quickstart", "wordpress/configuration", "wordpress/webhooks", "wordpress/testing"]
-                                    }
+                                    "integrations/wordpress/introduction",
+                                    "integrations/wordpress/quickstart",
+                                    "integrations/wordpress/configuration",
+                                    "integrations/wordpress/webhooks",
+                                    "integrations/wordpress/testing",
+                                    "integrations/wordpress/troubleshooting"
                                 ]
                             }
                         ]
                     },
                     {
                         "group": "Resources",
-                        "pages": ["wordpress/troubleshooting"]
-                    },
-                    {
-                        "group": "Misc",
-                        "pages": ["faq", "report-abuse"]
+                        "pages": ["guides/faq", "report-abuse"]
                     }
                 ]
             },
             {
                 "tab": "API Reference",
+                "icon": "rectangle-terminal",
                 "groups": [
                     {
                         "group": "Getting Started",
@@ -57,13 +83,30 @@
                     },
                     {
                         "group": "Core Resources",
-                        "pages": ["api/v1/payments", "api/v1/payment-links", "api/v1/webhooks"]
+                        "pages": [
+                            "api/v1/payments-guide",
+                            "api/v1/payment-links-guide"
+                        ]
+                    },
+                    {
+                        "group": "Webhooks",
+                        "pages": ["api/v1/webhooks"]
                     },
                     {
                         "group": "Reference",
                         "pages": ["api/v1/errors", "api/v1/rate-limits"]
                     }
                 ]
+            },
+            {
+                "tab": "Changelog",
+                "icon": "signal-stream",
+                "pages": ["changelog"]
+            },
+            {
+                "tab": "Support",
+                "icon": "circle-question",
+                "pages": ["support"]
             }
         ],
         "global": {
@@ -79,9 +122,9 @@
                     "icon": "github"
                 },
                 {
-                    "anchor": "API Docs",
-                    "href": "https://docs.ceypay.io/api/v1/quickstart",
-                    "icon": "code"
+                    "anchor": "Status",
+                    "href": "https://status.ceypay.io/",
+                    "icon": "signal-alt"
                 }
             ]
         }
@@ -89,14 +132,39 @@
     "navbar": {
         "links": [
             {
+                "label": "llms-full.txt",
+                "href": "https://docs.ceypay.io/llms-full.txt"
+            },
+            {
                 "label": "Support",
                 "href": "mailto:support@ceypay.io"
             }
-        ],
+              ],
         "primary": {
             "type": "button",
-            "label": "Get Onboarded",
+            "label": "Dashboard",
             "href": "https://merchant.ceypay.io/"
+        }
+    },
+    "tabs": [
+        {
+            "name": "API Reference",
+            "url": "api/v1"
+        }
+    ],
+    "api": {
+        "baseUrl": "https://api.ceypay.io",
+        "playground": {
+            "mode": "simple"
+        },
+        "maintainOrder": true
+    },
+    "seo": {
+        "indexHiddenPages": false
+    },
+    "analytics": {
+        "plausible": {
+            "domain": "docs.ceypay.io"
         }
     },
     "contextual": {
@@ -130,6 +198,18 @@
         {
             "source": "/api/rate-limits",
             "destination": "/api/v1/rate-limits"
+        },
+        {
+            "source": "/faq",
+            "destination": "/guides/faq"
+        },
+        {
+            "source": "/wordpress/:path*",
+            "destination": "/integrations/wordpress/:path*"
+        },
+        {
+            "source": "/guides/wordpress/:path*",
+            "destination": "/integrations/wordpress/:path*"
         }
     ],
     "footer": {
