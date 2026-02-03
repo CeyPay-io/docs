@@ -1,0 +1,309 @@
+---
+title: "Payments API"
+description: "Create and manage crypto payments through CeyPay. Accept USDT payments from customers with real-time processing."
+---
+
+## Endpoints
+
+| Method | Endpoint           | Description          | Rate Limit  |
+| ------ | ------------------ | -------------------- | ----------- |
+| POST   | `/v1/payment`      | Create a new payment | 100 req/min |
+| GET    | `/v1/payment/:id`  | Get payment details  | 300 req/min |
+| GET    | `/v1/payment/list` | List payments        | 200 req/min |
+
+---
+
+## Create Payment
+
+Creates a new payment order. Returns a QR code and checkout link for customer payment.
+
+```
+POST /v1/payment
+```
+
+### Authentication
+
+Requires [HMAC authentication](./authentication.md) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Request Body
+
+| Field                        | Type          | Required | Description                                 |
+| ---------------------------- | ------------- | -------- | ------------------------------------------- |
+| `amount`                     | number        | Yes      | Payment amount (minimum 0)                  |
+| `currency`                   | string        | Yes      | Currency code: `USDT` or `LKR`              |
+| `provider`                   | string        | Yes      | Payment provider: `BYBIT` or `BINANCE`      |
+| `goods`                      | array         | Yes      | Array of goods/products being purchased     |
+| `goods[].name`               | string        | Yes      | Product name                                |
+| `goods[].description`        | string        | Yes      | Product description                         |
+| `goods[].mccCode`            | string        | No       | Merchant Category Code (default: `5818`)    |
+| `branchId`                   | string (UUID) | No       | Branch ID for multi-branch merchants        |
+| `orderExpireTime`            | string        | No       | Expiration time (Unix timestamp in seconds) |
+| `webhookUrl`                 | string        | No       | URL to receive payment status updates       |
+| `merchantTradeNo`            | string        | No       | Your internal order reference               |
+| `customerBilling`            | object        | Yes      | Customer billing details                    |
+| `customerBilling.firstName`  | string        | Yes      | Customer first name                         |
+| `customerBilling.lastName`   | string        | Yes      | Customer last name                          |
+| `customerBilling.email`      | string        | Yes      | Customer email                              |
+| `customerBilling.phone`      | string        | Yes      | Customer phone                              |
+| `customerBilling.address`    | string        | Yes      | Street address                              |
+| `customerBilling.city`       | string        | No       | City                                        |
+| `customerBilling.postalCode` | string        | No       | Postal/ZIP code                             |
+| `customerBilling.country`    | string        | No       | Country                                     |
+
+### Currency Handling
+
+- **USDT**: Payment is created directly in USDT
+- **LKR**: Amount is automatically converted to USDT using the current exchange rate
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/payment" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "amount": 149.99,
+    "currency": "USDT",
+    "provider": "BYBIT",
+    "goods": [
+      {
+        "name": "Wireless Headphones",
+        "description": "Noise-cancelling Bluetooth headphones",
+        "mccCode": "5732"
+      }
+    ],
+    "webhookUrl": "https://mystore.com/api/payment-webhook",
+    "customerBilling": {
+      "email": "customer@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "phone": "+94771234567",
+      "address": "123 Main Street"
+    }
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "payId": "bybit_pay_abc123",
+  "paymentNo": "320045925616",
+  "amount": 149.99,
+  "currency": "USDT",
+  "status": "INITIATED",
+  "qrContent": "bybit://pay?id=abc123...",
+  "checkoutLink": "https://checkout.bybit.com/pay/abc123",
+  "goods": [
+    {
+      "name": "Wireless Headphones",
+      "description": "Noise-cancelling Bluetooth headphones",
+      "mccCode": "5732"
+    }
+  ],
+  "customerBilling": {
+    "email": "customer@example.com",
+    "firstName": "John",
+    "lastName": "Doe"
+  },
+  "paymentProvider": "BYBIT",
+  "expireTime": "2025-01-15T11:30:00.000Z",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "feeBreakdown": {
+    "grossAmountUSDT": 149.99,
+    "exchangeFeePercentage": 1.0,
+    "exchangeFeeAmountUSDT": 1.5,
+    "ceypayFeePercentage": 0.5,
+    "ceypayFeeAmountUSDT": 0.75,
+    "totalFeesUSDT": 2.25,
+    "netAmountUSDT": 147.74
+  }
+}
+```
+
+### Response Fields
+
+| Field             | Type   | Description                                              |
+| ----------------- | ------ | -------------------------------------------------------- |
+| `id`              | string | Unique payment ID                                        |
+| `merchantId`      | string | Your merchant ID                                         |
+| `payId`           | string | Payment provider's payment ID                            |
+| `paymentNo`       | string | Merchant trade number                                    |
+| `amount`          | number | Payment amount in USDT                                   |
+| `currency`        | string | Currency code (always USDT for processing)               |
+| `status`          | string | Payment status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
+| `qrContent`       | string | QR code content for mobile wallet scanning               |
+| `checkoutLink`    | string | Web checkout URL to redirect customers                   |
+| `goods`           | array  | Products/services in this payment                        |
+| `customerBilling` | object | Customer billing details (if provided)                   |
+| `paymentProvider` | string | Payment provider used                                    |
+| `expireTime`      | string | When the payment expires (ISO 8601)                      |
+| `createdAt`       | string | When the payment was created (ISO 8601)                  |
+| `feeBreakdown`    | object | Fee breakdown details                                    |
+
+### LKR Payment Response
+
+When creating a payment in LKR, additional fields are returned:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "amount": 101.52,
+  "currency": "USDT",
+  "usdtAmount": 101.52,
+  "exchangeRateSnapshot": 295.5,
+  "lkrGrossAmount": 30000.0,
+  "lkrExchangeFeeAmount": 750.0,
+  "lkrCeypayFeeAmount": 300.0,
+  "lkrNetAmount": 28950.0,
+  "feeBreakdown": {
+    "grossAmountUSDT": 101.52,
+    "grossAmountLKR": 30000.0,
+    "exchangeFeePercentage": 2.5,
+    "exchangeFeeAmountUSDT": 2.54,
+    "exchangeFeeAmountLKR": 750.0,
+    "ceypayFeePercentage": 1.0,
+    "ceypayFeeAmountUSDT": 1.02,
+    "ceypayFeeAmountLKR": 300.0,
+    "totalFeesUSDT": 3.56,
+    "totalFeesLKR": 1050.0,
+    "netAmountUSDT": 97.96,
+    "netAmountLKR": 28950.0
+  }
+}
+```
+
+---
+
+## Get Payment
+
+Retrieve details for a specific payment.
+
+```
+GET /v1/payment/:id
+```
+
+### Path Parameters
+
+| Parameter | Type   | Description |
+| --------- | ------ | ----------- |
+| `id`      | string | Payment ID  |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/payment/550e8400-e29b-41d4-a716-446655440000" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Error Responses
+
+| Status | Description                                      |
+| ------ | ------------------------------------------------ |
+| 403    | Payment does not belong to your merchant account |
+| 404    | Payment not found                                |
+
+---
+
+## List Payments
+
+Retrieve a paginated list of your payments.
+
+```
+GET /v1/payment/list
+```
+
+### Query Parameters
+
+| Parameter   | Type   | Default | Description                                                |
+| ----------- | ------ | ------- | ---------------------------------------------------------- |
+| `page`      | number | 1       | Page number                                                |
+| `pageSize`  | number | 20      | Items per page                                             |
+| `status`    | string | -       | Filter by status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
+| `dateRange` | string | -       | Date range preset: `last7`, `last30`, `last90`, `custom`   |
+| `search`    | string | -       | Search by payment ID or customer info                      |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/payment/list?page=1&pageSize=20&status=PAID" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "amount": 149.99,
+      "currency": "USDT",
+      "status": "PAID",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "paidAt": "2025-01-15T10:35:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "pageSize": 20,
+    "totalItems": 150,
+    "totalPages": 8
+  }
+}
+```
+
+---
+
+## Payment Status
+
+| Status      | Description                                              |
+| ----------- | -------------------------------------------------------- |
+| `INITIATED` | Payment created, awaiting customer payment               |
+| `PAID`      | Customer completed payment successfully                  |
+| `EXPIRED`   | Payment expired before customer paid                     |
+| `FAILED`    | Payment failed (network error, insufficient funds, etc.) |
+
+---
+
+## Webhooks
+
+Set `webhookUrl` in your payment request to receive real-time status updates.
+
+See [Webhooks Guide](./webhooks.md) for payload format, signature verification, and retry policy.
+
+---
+
+## Error Responses
+
+| Status | Error             | Description                              |
+| ------ | ----------------- | ---------------------------------------- |
+| 400    | Bad Request       | Invalid request body or validation error |
+| 401    | Unauthorized      | Invalid API key or signature             |
+| 403    | Forbidden         | Payment belongs to another merchant      |
+| 404    | Not Found         | Payment not found                        |
+| 429    | Too Many Requests | Rate limit exceeded                      |
+
+See [Error Codes](./errors.md) for detailed error handling.
+
+---
+
+## Related Documentation
+
+- [Quick Start](./quickstart.md) - Getting started guide
+- [Authentication](./authentication.md) - HMAC signature details
+- [Webhooks](./webhooks.md) - Receive payment notifications
+- [Rate Limits](./rate-limits.md) - API rate limiting
+- [Errors](./errors.md) - Error codes reference
