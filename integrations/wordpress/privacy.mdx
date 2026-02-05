@@ -1,0 +1,280 @@
+---
+title: Privacy & External Services
+description: External services used by the CeyPay WordPress plugin and how data is handled.
+---
+
+<Info>
+  The CeyPay WordPress plugin connects to external services to process payments,
+  load fonts, and optionally collect analytics. This page documents all external
+  services, what data is sent, and when. This information is provided for
+  transparency and compliance with WordPress.org guidelines.
+</Info>
+
+## Required Services
+
+These services are essential for the plugin to function and cannot be disabled.
+
+<CardGroup cols={1}>
+  <Card title="CeyPay Payment API" icon="credit-card">
+    **Purpose**: Process cryptocurrency payments and generate QR codes for Bybit, Binance Pay, and KuCoin.
+
+    <div style={{ marginTop: "12px" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Service Provider</strong></td>
+            <td>CeyPay</td>
+          </tr>
+          <tr>
+            <td><strong>Service URLs</strong></td>
+            <td>
+              Production: `https://api.ceypay.io/`<br />
+              Test Mode: `https://sandbox-api.ceypay.io/`
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Data Sent</strong></td>
+            <td>
+              • Order total and currency<br />
+              • Order ID and merchant ID<br />
+              • No customer personal data or payment credentials
+            </td>
+          </tr>
+          <tr>
+            <td><strong>When</strong></td>
+            <td>Every time a customer initiates a CeyPay payment at checkout</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </Card>
+
+  <Card title="CeyPay Error Reporting" icon="bug">
+    **Purpose**: Send error logs and diagnostic information to help identify and fix payment integration issues.
+
+    <div style={{ marginTop: "12px" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Service Provider</strong></td>
+            <td>CeyPay</td>
+          </tr>
+          <tr>
+            <td><strong>Service URL</strong></td>
+            <td>`https://dev.ceylon.cash/ceypay/debugger/logs/report`</td>
+          </tr>
+          <tr>
+            <td><strong>Data Sent</strong></td>
+            <td>
+              • Error messages and stack traces<br />
+              • Plugin version, WordPress version, WooCommerce version<br />
+              • No customer personal data or payment details
+            </td>
+          </tr>
+          <tr>
+            <td><strong>When</strong></td>
+            <td>When an error occurs during payment processing</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </Card>
+
+  <Card title="Google Fonts" icon="font">
+    **Purpose**: Load the Lato font to ensure consistent typography in the payment modal.
+
+    <div style={{ marginTop: "12px" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Service Provider</strong></td>
+            <td>Google LLC</td>
+          </tr>
+          <tr>
+            <td><strong>Service URL</strong></td>
+            <td>`https://fonts.googleapis.com/`</td>
+          </tr>
+          <tr>
+            <td><strong>Data Sent</strong></td>
+            <td>
+              • User's IP address (standard web request)<br />
+              • No personal or payment information
+            </td>
+          </tr>
+          <tr>
+            <td><strong>When</strong></td>
+            <td>Every time the checkout page with CeyPay is loaded</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </Card>
+</CardGroup>
+
+## Optional Services
+
+<Warning>
+  These services are **disabled by default** and require explicit opt-in through
+  the plugin settings. You must enable "Usage Analytics" in WooCommerce →
+  Settings → Payments → CeyPay to activate them.
+</Warning>
+
+<CardGroup cols={1}>
+  <Card title="Google Analytics" icon="chart-line">
+    **Purpose**: Collect anonymous payment flow events to help improve the plugin.
+
+    <div style={{ marginTop: "12px" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Service Provider</strong></td>
+            <td>Google LLC</td>
+          </tr>
+          <tr>
+            <td><strong>Service URLs</strong></td>
+            <td>
+              `https://www.googletagmanager.com/`<br />
+              `https://www.google-analytics.com/`
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Data Sent</strong></td>
+            <td>
+              • Anonymous events (e.g., provider selection, payment completion rates)<br />
+              • Merchant ID (not customer data)<br />
+              • No personal customer data or transaction amounts
+            </td>
+          </tr>
+          <tr>
+            <td><strong>When</strong></td>
+            <td>On checkout and cart pages when analytics is enabled</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <Steps>
+      <Step title="Navigate to Settings">
+        Go to **WooCommerce → Settings → Payments → CeyPay**
+      </Step>
+      <Step title="Disable Analytics">
+        Uncheck **"Enable usage analytics"**
+      </Step>
+      <Step title="Save Changes">
+        Click **Save changes** at the bottom of the page
+      </Step>
+    </Steps>
+
+  </Card>
+
+  <Card title="Facebook Pixel" icon="facebook">
+    **Purpose**: Track checkout and purchase conversion events to measure payment gateway effectiveness.
+
+    <div style={{ marginTop: "12px" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td><strong>Service Provider</strong></td>
+            <td>Meta Platforms, Inc.</td>
+          </tr>
+          <tr>
+            <td><strong>Service URLs</strong></td>
+            <td>
+              `https://connect.facebook.net/`<br />
+              `https://www.facebook.com/tr`
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Data Sent</strong></td>
+            <td>
+              • PageView event on all pages<br />
+              • InitiateCheckout event on checkout page<br />
+              • Purchase event with order total and currency on order confirmation page
+            </td>
+          </tr>
+          <tr>
+            <td><strong>When</strong></td>
+            <td>On checkout and order confirmation pages when analytics is enabled</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <Steps>
+      <Step title="Navigate to Settings">
+        Go to **WooCommerce → Settings → Payments → CeyPay**
+      </Step>
+      <Step title="Disable Analytics">
+        Uncheck **"Enable usage analytics"**
+      </Step>
+      <Step title="Save Changes">
+        Click **Save changes** at the bottom of the page
+      </Step>
+    </Steps>
+
+  </Card>
+</CardGroup>
+
+## Data Privacy Summary
+
+<AccordionGroup>
+  <Accordion title="What customer data is collected?" icon="database">
+    The plugin only sends order totals and currency information to CeyPay for payment processing. No personal customer information (names, emails, addresses) or payment credentials are transmitted to CeyPay servers.
+
+    All customer data is processed by WooCommerce and remains on your server.
+
+  </Accordion>
+
+  <Accordion title="Is customer data shared with third parties?" icon="share-nodes">
+    No. Customer personal information is not shared with any third-party services. Only order totals and merchant IDs are sent to CeyPay's payment API to generate QR codes.
+
+    Optional analytics services (Google Analytics and Facebook Pixel) only receive anonymous event data if explicitly enabled by the merchant.
+
+  </Accordion>
+
+  <Accordion title="How is data secured?" icon="lock">
+    All communication with CeyPay APIs uses HTTPS encryption (SSL/TLS). Webhook notifications are signed with HMAC-SHA256 signatures to prevent tampering and verify authenticity.
+
+    See the [Webhooks](/integrations/wordpress/webhooks) documentation for technical details.
+
+  </Accordion>
+
+  <Accordion title="Can I disable analytics?" icon="toggle-on">
+    Yes. Analytics features (Google Analytics and Facebook Pixel) are **disabled by default**. They only activate when you explicitly check "Enable usage analytics" in the plugin settings.
+
+    To disable analytics at any time, go to WooCommerce → Settings → Payments → CeyPay and uncheck the option.
+
+  </Accordion>
+
+  <Accordion title="What about GDPR compliance?" icon="scale-balanced">
+    The CeyPay plugin is designed with GDPR principles in mind:
+
+    - Minimal data collection (only what's needed for payment processing)
+    - No customer personal data sent to external services
+    - Optional analytics require explicit opt-in
+    - Transparent documentation of all external services
+
+    You should still conduct your own GDPR compliance review based on your specific use case and jurisdiction.
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Contact Support" icon="envelope" href="mailto:support@ceypay.io">
+    Have questions about data handling? Reach out to our support team.
+  </Card>
+  <Card
+    title="Privacy Policy"
+    icon="file-shield"
+    href="https://ceypay.io/privacy"
+  >
+    Read our full privacy policy for detailed information.
+  </Card>
+</CardGroup>

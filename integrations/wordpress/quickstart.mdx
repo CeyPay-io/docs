@@ -5,22 +5,25 @@ description: Get CeyPay WordPress Plugin installed and accepting crypto payments
 
 import { WooCommerceDownload } from "/snippets/woocommerce-download.mdx";
 
-<div style={{ textAlign: "left", margin: "20px 0" }}>
-  <img
-    src="/logo/CeyPayLongLight.svg"
-    alt="CeyPay"
-    className="block dark:hidden"
-    style={{ height: "48px" }}
-  />
-  <img
-    src="/logo/CeyPayLongDark.svg"
-    alt="CeyPay"
-    className="hidden dark:block"
-    style={{
-      height: "48px",
-    }}
-  />
-</div>
+<Info>
+  This guide will walk you through installing the CeyPay WordPress plugin,
+  configuring your credentials, and verifying your setup. You'll be ready to
+  accept crypto payments in under 10 minutes.
+</Info>
+
+## What You'll Need
+
+<CardGroup cols={3}>
+  <Card title="WordPress 5.8+" icon="wordpress">
+    With admin access
+  </Card>
+  <Card title="WooCommerce 7.0+" icon="cart-shopping">
+    Installed and active
+  </Card>
+  <Card title="CeyPay Account" icon="user-check">
+    Merchant credentials
+  </Card>
+</CardGroup>
 
 ## Installation
 
@@ -92,84 +95,140 @@ Choose one of the following methods to install the CeyPay Payment Gateway plugin
 
 ## Initial Configuration
 
-After activation, you'll see an admin notice prompting you to complete the setup. Follow these steps to configure CeyPay.
+<Info>
+  After activation, you'll see an admin notice prompting you to complete the
+  setup. This only takes a few minutes!
+</Info>
 
 <Steps>
-  <Step title="Access Payment Settings">
-    Navigate to **WooCommerce > Settings > Payments** in your WordPress admin.
+  <Step title="Access Payment Settings" icon="gear">
+    Navigate to **WooCommerce → Settings → Payments** in your WordPress admin dashboard.
   </Step>
-  <Step title="Enable CeyPay">
-    Find **CeyPay** in the list of available payment methods. Toggle the switch to enable it, then click **Manage** or the gateway name.
+  <Step title="Enable CeyPay" icon="toggle-on">
+    Find **CeyPay** in the list of available payment methods. Toggle the switch to **enable** it, then click **Manage** or click the gateway name.
   </Step>
-  <Step title="Enter Your Credentials">
+  <Step title="Enter Your Credentials" icon="key">
     Fill in the required fields:
 
     <ParamField path="Merchant ID" type="string" required>
-      Your unique merchant identifier from the CeyPay dashboard.
+      Your unique merchant identifier from the CeyPay dashboard. Example: `MERCH-123456`
     </ParamField>
 
     <ParamField path="Webhook Secret" type="string" required>
-      The secret key used to verify webhook signatures. Found in your CeyPay dashboard under API settings.
+      The secret key used to verify webhook signatures. Found in your CeyPay dashboard under **Settings → API Settings**. Keep this secure!
     </ParamField>
 
   </Step>
-  <Step title="Save Changes">
-    Click **Save changes** at the bottom of the page.
+  <Step title="Save Changes" icon="floppy-disk">
+    Click **Save changes** at the bottom of the page to apply your configuration.
   </Step>
 </Steps>
 
 <Check>
-  Once configured, CeyPay will appear as a payment option on your checkout page.
+  **Success!** Once configured, CeyPay will appear as a payment option on your
+  checkout page. Customers can now pay with Bybit, Binance Pay, or KuCoin.
 </Check>
 
 ## Get Your API Credentials
 
-If you don't have your Merchant ID and Webhook Secret yet, follow these steps:
+<Tip>
+  Don't have a CeyPay account yet? You can apply for a merchant account in
+  minutes and get instant access to test mode credentials.
+</Tip>
 
 <Steps>
-  <Step title="Create a CeyPay Account">
-    Visit [ceypay.io](https://ceypay.io) and sign up for a merchant account.
+  <Step title="Create a CeyPay Account" icon="user-plus">
+    Visit [merchant.ceypay.io](https://merchant.ceypay.io) and sign up for a
+    merchant account. You'll receive test credentials immediately.
   </Step>
-  <Step title="Complete Verification">
-    Complete the merchant verification process as required.
+  <Step title="Complete Verification" icon="id-card">
+    Complete the merchant verification process to unlock production access and
+    real payment processing.
   </Step>
-  <Step title="Access API Settings">
-    In your CeyPay dashboard, navigate to the API or Integration settings
-    section.
+  <Step title="Access API Settings" icon="key">
+    In your CeyPay dashboard, navigate to **Settings → API Settings** or
+    **Integration** section.
   </Step>
-  <Step title="Copy Credentials">
-    Copy your **Merchant ID** and generate a **Webhook Secret** if one hasn't
-    been created.
+  <Step title="Copy Credentials" icon="copy">
+    Copy your **Merchant ID** and **Webhook Secret**. Keep these secure—they're
+    used to authenticate API requests.
   </Step>
 </Steps>
 
+<Note>
+  Your webhook secret should be treated like a password. Never share it publicly
+  or commit it to version control.
+</Note>
+
 ## Verify Your Setup
 
-To confirm CeyPay is working correctly:
+<Tip>
+  Always test your integration before going live. Test mode lets you simulate
+  the complete payment flow without processing real transactions.
+</Tip>
 
 <Steps>
-  <Step title="Enable Test Mode">
-    In the CeyPay settings, check **Enable Test Mode**. This allows you to test
-    without real transactions.
+  <Step title="Enable Test Mode" icon="flask">
+    In the CeyPay settings (WooCommerce → Settings → Payments → CeyPay), check
+    **Enable Test Mode**. This allows you to test without real transactions.
   </Step>
-  <Step title="Place a Test Order">
-    Add a product to your cart and proceed to checkout. Select CeyPay as the
+  <Step title="Place a Test Order" icon="cart-plus">
+    Add a product to your cart and proceed to checkout. Select **CeyPay** as the
     payment method.
   </Step>
-  <Step title="Complete the Flow">
-    After clicking "Place Order", the payment modal should appear. In test mode,
-    you'll see a "Simulate Success" button.
+  <Step title="Complete the Flow" icon="mobile">
+    After clicking "Place Order", the payment modal should appear with QR codes
+    for Bybit, Binance Pay, and KuCoin. In test mode, you'll see a **"Simulate
+    Success"** button.
   </Step>
-  <Step title="Verify Order Status">
-    Click the simulate button and confirm the order is marked as "Processing" or
-    "Completed" in WooCommerce.
+  <Step title="Verify Order Status" icon="circle-check">
+    Click the simulate button and confirm the order is marked as
+    **"Processing"** or **"Completed"** in WooCommerce → Orders.
   </Step>
 </Steps>
 
 <Warning>
-  Remember to disable Test Mode before accepting real payments. Test Mode is
-  only visible to administrators.
+  **Remember to disable Test Mode before accepting real payments!** Test Mode is
+  only visible to administrators and prevents actual payment processing.
 </Warning>
+
+<AccordionGroup>
+  <Accordion title="What if the payment modal doesn't appear?" icon="circle-question">
+    Check that:
+    - JavaScript is enabled in your browser
+    - Your theme is not blocking modal overlays
+    - There are no JavaScript errors in the browser console (F12 → Console)
+    - The plugin is activated and WooCommerce is working properly
+  </Accordion>
+
+<Accordion title="How do I test with real crypto wallets?" icon="wallet">
+  Test mode simulates the payment flow without requiring real wallets. To test
+  with actual Bybit, Binance Pay, or KuCoin accounts, disable test mode and use
+  small amounts. Make sure you're in a test environment before processing real
+  payments.
+</Accordion>
+
+  <Accordion title="What happens after a successful test?" icon="check">
+    A successful test confirms that:
+    - The plugin is installed and activated correctly
+    - Your API credentials are valid
+    - Webhooks are configured properly (if using real mode)
+    - WooCommerce can process orders through CeyPay
+
+    You're ready to accept real crypto payments!
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## You're All Set! 🎉
+
+<Check>
+  Congratulations! You've successfully installed and configured the CeyPay
+  WordPress plugin. Your store is now ready to accept cryptocurrency payments
+  from Bybit, Binance Pay, and KuCoin.
+</Check>
 
 ## Next Steps
 
@@ -187,5 +246,26 @@ To confirm CeyPay is working correctly:
     href="/integrations/wordpress/testing"
   >
     Learn how to thoroughly test your integration before going live.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/integrations/wordpress/webhooks">
+    Understand how webhooks work and verify they're configured correctly.
+  </Card>
+  <Card
+    title="Troubleshooting"
+    icon="life-ring"
+    href="/integrations/wordpress/troubleshooting"
+  >
+    Common issues and solutions to keep your integration running smoothly.
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Contact Support" icon="envelope" href="mailto:support@ceypay.io">
+    Our support team is here to help with any questions.
+  </Card>
+  <Card title="Join Community" icon="users" href="https://t.me/CeyPayio">
+    Connect with other merchants on Telegram.
   </Card>
 </CardGroup>
