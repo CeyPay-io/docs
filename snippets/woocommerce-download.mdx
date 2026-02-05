@@ -1,0 +1,95 @@
+export const WooCommerceDownload = ({ hideDocs = false }) => {
+  const [release, setRelease] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+React.useEffect(() => {
+fetch('https://api.github.com/repos/CeyPay-io/woocommerce-plugin/releases/latest', {
+headers: {
+'Accept': 'application/vnd.github+json',
+},
+})
+.then((res) => {
+if (!res.ok) throw new Error('Failed to fetch release');
+return res.json();
+})
+.then((data) => {
+setRelease(data);
+setIsLoading(false);
+})
+.catch((err) => {
+setError(err.message);
+setIsLoading(false);
+});
+}, []);
+
+const getDownloadUrl = () => {
+if (!release) return null;
+const zipAsset = release.assets.find(
+(asset) => asset.name.endsWith('.zip') && asset.name.includes('ceypay-payment-gateway')
+);
+return zipAsset?.browser_download_url || null;
+};
+
+const downloadUrl = getDownloadUrl();
+const version = release?.tag_name;
+
+return (
+
+<div className="not-prose my-6 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50/50 dark:bg-zinc-900/30 p-4 backdrop-blur-sm">
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+<div className="flex items-center gap-3 min-w-0 flex-1">
+<div className="w-10 h-10 flex items-center justify-center rounded-lg bg-[#1C6EF5] shrink-0">
+<svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+<path d="M21.469 6.825c.84 1.537 1.318 3.3 1.318 5.175 0 3.979-2.156 7.456-5.363 9.325l3.295-9.527c.615-1.54.82-2.771.82-3.864 0-.405-.026-.78-.07-1.11m-7.981.105c.647-.03 1.232-.105 1.232-.105.582-.075.514-.93-.067-.899 0 0-1.755.135-2.88.135-1.064 0-2.85-.15-2.85-.15-.585-.03-.661.855-.075.885 0 0 .54.061 1.125.09l1.68 4.605-2.37 7.08L5.354 6.9c.649-.03 1.234-.1 1.234-.1.585-.075.516-.93-.065-.896 0 0-1.746.138-2.874.138-.2 0-.438-.008-.692-.015C4.911 3.15 8.235 1.215 12 1.215c2.809 0 5.365 1.072 7.286 2.833-.046-.003-.091-.009-.141-.009-1.06 0-1.812.923-1.812 1.914 0 .89.513 1.643 1.06 2.531.411.72.89 1.643.89 2.977 0 .915-.354 1.994-.821 3.479l-1.075 3.585-3.9-11.61.001.014zM12 22.784c-1.059 0-2.081-.153-3.048-.437l3.237-9.406 3.315 9.087c.024.053.05.101.078.149-1.12.393-2.325.607-3.582.607M1.211 12c0-1.564.336-3.05.935-4.39L7.29 21.709C3.694 19.96 1.212 16.271 1.211 12M12 0C5.385 0 0 5.385 0 12s5.385 12 12 12 12-5.385 12-12S18.615 0 12 0z" />
+</svg>
+</div>
+<div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white m-0">
+              WooCommerce Plugin
+            </h3>
+            {isLoading ? (
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-400 animate-pulse">
+                ...
+              </span>
+            ) : version && (
+              <span className="text-xs px-2 py-0.5 rounded bg-[#1C6EF5]/10 text-[#1C6EF5] dark:text-[#5B9EFF] font-medium border border-[#1C6EF5]/20">
+                {version}
+              </span>
+            )}
+          </div>
+<p className="text-xs text-zinc-500 dark:text-zinc-400 m-0 truncate">
+Accept crypto payments on WooCommerce
+</p>
+</div>
+</div>
+      <div className="flex gap-2 shrink-0">
+        {downloadUrl && !isLoading && (
+          <a
+            href={downloadUrl}
+            download
+            className="inline-flex items-center justify-center gap-1.5 h-8 bg-[#1C6EF5] px-3 py-1 text-xs font-medium text-white hover:bg-[#1557C3] rounded-lg no-underline transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download
+          </a>
+        )}
+        {!hideDocs && (
+          <a
+            href="/integrations/wordpress/quickstart"
+            className="inline-flex items-center justify-center gap-1.5 h-8 border border-zinc-300 dark:border-white/20 bg-white/50 dark:bg-white/5 px-3 py-1 text-xs font-medium text-zinc-900 dark:text-white hover:bg-white dark:hover:bg-white/10 rounded-lg no-underline transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Docs
+          </a>
+        )}
+</div>
+</div>
+</div>
+);
+};
