@@ -236,7 +236,7 @@
         },
         {
             "source": "/changelog",
-            "destination": "/product-updates"
+            "destination": "/changelog/product-updates"
         }
     ],
     "footer": {
