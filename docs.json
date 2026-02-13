@@ -165,11 +165,29 @@
         "maintainOrder": true
     },
     "seo": {
-        "indexHiddenPages": false
+        "indexHiddenPages": false,
+        "metatags": {
+            "canonical": "https://docs.ceypay.io",
+            "og:image": "https://docs.ceypay.io/images/introduction_cover.png",
+            "twitter:card": "summary_large_image",
+            "twitter:site": "@ceypayintern",
+            "robots": "index, follow",
+            "language": "en",
+            "author": "CeyPay"
+        }
     },
     "analytics": {
         "plausible": {
             "domain": "docs.ceypay.io"
+        }
+    },
+    "integrations": {
+        "ga4": {
+            "measurementId": "G-ZZVE717KCV"
+        },
+        "posthog": {
+            "apiKey": "phc_fgL4iDNNh3YzNWKtBmQe0UOMz5ZExsWtCCpUndBXeos",
+            "apiHost": "https://us.i.posthog.com"
         }
     },
     "contextual": {
