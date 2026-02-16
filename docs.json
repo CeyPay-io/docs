@@ -89,8 +89,8 @@
                     {
                         "group": "Core Resources",
                         "pages": [
-                            "api/v1/payments-guide",
-                            "api/v1/payment-links-guide"
+                            "api/v1/payments",
+                            "api/v1/payment-links"
                         ]
                     },
                     {
@@ -209,6 +209,14 @@
         {
             "source": "/api/payment-links",
             "destination": "/api/v1/payment-links"
+        },
+        {
+            "source": "/api/v1/payment-links-guide",
+            "destination": "/api/v1/payment-links"
+        },
+        {
+            "source": "/api/v1/payments-guide",
+            "destination": "/api/v1/payments"
         },
         {
             "source": "/api/webhooks",
