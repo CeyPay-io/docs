@@ -106,7 +106,7 @@
             {
                 "tab": "Changelog",
                 "icon": "signal-stream",
-                "pages": ["changelog"]
+                "pages": ["changelog/product-updates", "changelog/legal-updates"]
             },
             {
                 "tab": "Support",
@@ -233,6 +233,10 @@
         {
             "source": "/guides/wordpress/:path*",
             "destination": "/integrations/wordpress/:path*"
+        },
+        {
+            "source": "/changelog",
+            "destination": "/changelog/product-updates"
         }
     ],
     "footer": {
