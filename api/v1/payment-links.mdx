@@ -37,7 +37,9 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
     "amount": 49.99,
     "currency": "USDT",
     "reusable": true,
-    "allow_custom_amount": false
+    "allow_custom_amount": false,
+    "allow_quantity_buy": true,
+    "max_quantity": 10
   }'
 ```
 
@@ -52,6 +54,8 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
 | `allow_custom_amount` | boolean | Yes      | Whether to allow customers to enter a custom amount. Default: `false`.         |
 | `min_amount`          | number  | No\*     | Minimum amount for custom payments. Required if `allow_custom_amount` is true. |
 | `max_amount`          | number  | No\*     | Maximum amount for custom payments. Required if `allow_custom_amount` is true. |
+| `allow_quantity_buy`  | boolean | No       | Allow customers to purchase multiple quantities. Default: `false`.             |
+| `max_quantity`        | number  | No\*     | Maximum quantity allowed per purchase. Required if `allow_quantity_buy` is true. |
 | `reusable`            | boolean | No       | Whether the link can be used multiple times. Default: `true`.                  |
 | `expiration_date`     | string  | No       | Expiration date in ISO 8601 format.                                            |
 | `branchId`            | string  | No       | Branch ID to associate with.                                                   |
@@ -68,6 +72,8 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   "amount": 49.99,
   "currency": "USDT",
   "allow_custom_amount": false,
+  "allow_quantity_buy": true,
+  "max_quantity": 10,
   "reusable": true,
   "used_count": 0,
   "status": "ACTIVE",
@@ -199,6 +205,8 @@ curl -X PATCH "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446
 | `allow_custom_amount` | boolean | Allow custom amount.      |
 | `min_amount`          | number  | Min custom amount.        |
 | `max_amount`          | number  | Max custom amount.        |
+| `allow_quantity_buy`  | boolean | Allow quantity purchase.  |
+| `max_quantity`        | number  | Max quantity per purchase.|
 | `expiration_date`     | string  | Expiration date.          |
 
 ### Example Response (200 OK)
