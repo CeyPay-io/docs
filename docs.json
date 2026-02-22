@@ -1,7 +1,7 @@
 {
     "$schema": "https://mintlify.com/docs.json",
     "banner": {
-        "content": "⚡ Start accepting digital currency today - [Apply now](https://merchant.ceypay.io)",
+        "content": "⚡ Get instant access to CeyPay. No waiting, no hassle. [Apply now](https://merchant.ceypay.io)",
         "dismissible": true
     },
     "theme": "aspen",
