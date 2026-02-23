@@ -111,13 +111,23 @@ Content-Type: application/json
 
 **IMPORTANT**: Always verify webhook signatures to prevent unauthorized requests. CeyPay uses **ED25519** (an EdDSA signature scheme) for signing webhooks.
 
-### CeyPay Public Key
+### CeyPay Public Keys
 
-Use this public key to verify the signatures sent by CeyPay:
+Use these public keys to verify the signatures sent by CeyPay:
+
+**Production**
 
 ```
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAs+hotF0u5tdoATwAIezK58lzfMZIoKDTlRgoUU+6Qr4=
+-----END PUBLIC KEY-----
+```
+
+**Sandbox**
+
+```
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEAXD9k6rwT30WwEN9nwvEuPRsfZCJ9nTLIOeQZQxludAk=
 -----END PUBLIC KEY-----
 ```
 
