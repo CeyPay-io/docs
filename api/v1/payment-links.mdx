@@ -40,7 +40,8 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
     "allowQuantityBuy": true,
     "maxQuantity": 10,
     "successUrl": "https://yourstore.com/payment/success",
-    "cancelUrl": "https://yourstore.com/payment/cancelled"
+    "cancelUrl": "https://yourstore.com/payment/cancelled",
+    "webhookUrl": "https://yourstore.com/webhooks/ceypay"
   }'
 ```
 
@@ -61,6 +62,7 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
 | `expirationDate`    | string  | No       | Expiration date in ISO 8601 format.                                            |
 | `successUrl`        | string  | No       | URL to redirect customers after successful payment.                            |
 | `cancelUrl`         | string  | No       | URL to redirect customers if they cancel the payment.                          |
+| `webhookUrl`        | string  | No       | Webhook URL to receive payment notifications.                                  |
 | `branchId`          | string  | No       | Branch ID to associate with.                                                   |
 
 ### Example Response (201 Created)
@@ -80,6 +82,7 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   "reusable": true,
   "successUrl": "https://yourstore.com/payment/success",
   "cancelUrl": "https://yourstore.com/payment/cancelled",
+  "webhookUrl": "https://yourstore.com/webhooks/ceypay",
   "used_count": 0,
   "status": "ACTIVE",
   "creator_type": "API_KEY",
