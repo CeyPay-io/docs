@@ -10,7 +10,6 @@ description: "Accept payments without full checkout integration. Generate reusab
 | POST   | `/v1/payment-link`      | Create a new payment link | 50 req/min  |
 | GET    | `/v1/payment-link/:id`  | Get payment link details  | 100 req/min |
 | GET    | `/v1/payment-link/list` | List payment links        | 100 req/min |
-| PATCH  | `/v1/payment-link/:id`  | Update a payment link     | 50 req/min  |
 | DELETE | `/v1/payment-link/:id`  | Deactivate a payment link | 50 req/min  |
 
 ---
@@ -37,28 +36,32 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
     "amount": 49.99,
     "currency": "USDT",
     "reusable": true,
-    "allow_custom_amount": false,
-    "allow_quantity_buy": true,
-    "max_quantity": 10
+    "allowCustomAmount": false,
+    "allowQuantityBuy": true,
+    "maxQuantity": 10,
+    "successUrl": "https://yourstore.com/payment/success",
+    "cancelUrl": "https://yourstore.com/payment/cancelled"
   }'
 ```
 
 ### Request Body
 
-| Field                 | Type    | Required | Description                                                                    |
-| --------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
-| `name`                | string  | Yes      | Name of the payment link.                                                      |
-| `description`         | string  | No       | Description of the payment.                                                    |
-| `amount`              | number  | No\*     | Fixed amount. Required if `allow_custom_amount` is false.                      |
-| `currency`            | string  | Yes      | Currency code (e.g., `USDT`, `LKR`).                                           |
-| `allow_custom_amount` | boolean | Yes      | Whether to allow customers to enter a custom amount. Default: `false`.         |
-| `min_amount`          | number  | No\*     | Minimum amount for custom payments. Required if `allow_custom_amount` is true. |
-| `max_amount`          | number  | No\*     | Maximum amount for custom payments. Required if `allow_custom_amount` is true. |
-| `allow_quantity_buy`  | boolean | No       | Allow customers to purchase multiple quantities. Default: `false`.             |
-| `max_quantity`        | number  | No\*     | Maximum quantity allowed per purchase. Required if `allow_quantity_buy` is true. |
-| `reusable`            | boolean | No       | Whether the link can be used multiple times. Default: `true`.                  |
-| `expiration_date`     | string  | No       | Expiration date in ISO 8601 format.                                            |
-| `branchId`            | string  | No       | Branch ID to associate with.                                                   |
+| Field               | Type    | Required | Description                                                                    |
+| ------------------- | ------- | -------- | ------------------------------------------------------------------------------ |
+| `name`              | string  | Yes      | Name of the payment link.                                                      |
+| `description`       | string  | No       | Description of the payment.                                                    |
+| `amount`            | number  | No\*     | Fixed amount. Required if `allowCustomAmount` is false.                        |
+| `currency`          | string  | Yes      | Currency code (e.g., `USDT`, `LKR`).                                           |
+| `allowCustomAmount` | boolean | Yes      | Whether to allow customers to enter a custom amount. Default: `false`.         |
+| `minAmount`         | number  | No\*     | Minimum amount for custom payments. Required if `allowCustomAmount` is true.   |
+| `maxAmount`         | number  | No\*     | Maximum amount for custom payments. Required if `allowCustomAmount` is true.   |
+| `allowQuantityBuy`  | boolean | No       | Allow customers to purchase multiple quantities. Default: `false`.             |
+| `maxQuantity`       | number  | No\*     | Maximum quantity allowed per purchase. Required if `allowQuantityBuy` is true. |
+| `reusable`          | boolean | No       | Whether the link can be used multiple times. Default: `true`.                  |
+| `expirationDate`    | string  | No       | Expiration date in ISO 8601 format.                                            |
+| `successUrl`        | string  | No       | URL to redirect customers after successful payment.                            |
+| `cancelUrl`         | string  | No       | URL to redirect customers if they cancel the payment.                          |
+| `branchId`          | string  | No       | Branch ID to associate with.                                                   |
 
 ### Example Response (201 Created)
 
@@ -71,10 +74,12 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   "description": "Monthly premium plan subscription",
   "amount": 49.99,
   "currency": "USDT",
-  "allow_custom_amount": false,
-  "allow_quantity_buy": true,
-  "max_quantity": 10,
+  "allowCustomAmount": false,
+  "allowQuantityBuy": true,
+  "maxQuantity": 10,
   "reusable": true,
+  "successUrl": "https://yourstore.com/payment/success",
+  "cancelUrl": "https://yourstore.com/payment/cancelled",
   "used_count": 0,
   "status": "ACTIVE",
   "creator_type": "API_KEY",
@@ -169,49 +174,6 @@ curl "https://api.ceypay.io/v1/payment-link/list?page=1&pageSize=20" \
   "hasPrev": false
 }
 ```
-
----
-
-## Update Payment Link
-
-Update an existing payment link.
-
-```
-PATCH /v1/payment-link/:id
-```
-
-### Example Request
-
-```bash
-curl -X PATCH "https://api.ceypay.io/v1/payment-link/550e8400-e29b-41d4-a716-446655440000" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "amount": 59.99,
-    "description": "Updated premium plan price"
-  }'
-```
-
-### Request Body (Optional Fields)
-
-| Field                 | Type    | Description               |
-| --------------------- | ------- | ------------------------- |
-| `name`                | string  | Name of the payment link. |
-| `description`         | string  | Description.              |
-| `amount`              | number  | Fixed amount.             |
-| `currency`            | string  | Currency code.            |
-| `allow_custom_amount` | boolean | Allow custom amount.      |
-| `min_amount`          | number  | Min custom amount.        |
-| `max_amount`          | number  | Max custom amount.        |
-| `allow_quantity_buy`  | boolean | Allow quantity purchase.  |
-| `max_quantity`        | number  | Max quantity per purchase.|
-| `expiration_date`     | string  | Expiration date.          |
-
-### Example Response (200 OK)
-
-Returns the updated payment link object.
 
 ---
 
