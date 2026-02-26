@@ -31,11 +31,12 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   -H "x-timestamp: 1705315800000" \
   -H "x-signature: your_signature_here" \
   -d '{
+    "merchantTradeNo": "ORDER-2025-001",
     "name": "Premium Subscription",
     "description": "Monthly premium plan subscription",
     "amount": 49.99,
     "currency": "USDT",
-    "reusable": true,
+    "reusable": false,
     "allowCustomAmount": false,
     "allowQuantityBuy": true,
     "maxQuantity": 10,
@@ -63,6 +64,7 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
 | `successUrl`        | string  | No       | URL to redirect customers after successful payment.                            |
 | `cancelUrl`         | string  | No       | URL to redirect customers if they cancel the payment.                          |
 | `webhookUrl`        | string  | No       | Webhook URL to receive payment notifications.                                  |
+| `merchantTradeNo`   | string  | No       | Unique merchant trade number for tracking.                                     |
 | `branchId`          | string  | No       | Branch ID to associate with.                                                   |
 
 ### Example Response (201 Created)
@@ -72,6 +74,7 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "merchant_id": "merchant_12345",
   "slug": "link_abc123xyz",
+  "merchantTradeNo": "ORDER-2025-001",
   "name": "Premium Subscription",
   "description": "Monthly premium plan subscription",
   "amount": 49.99,
@@ -79,7 +82,7 @@ curl -X POST "https://api.ceypay.io/v1/payment-link" \
   "allowCustomAmount": false,
   "allowQuantityBuy": true,
   "maxQuantity": 10,
-  "reusable": true,
+  "reusable": false,
   "successUrl": "https://yourstore.com/payment/success",
   "cancelUrl": "https://yourstore.com/payment/cancelled",
   "webhookUrl": "https://yourstore.com/webhooks/ceypay",
