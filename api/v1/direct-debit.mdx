@@ -1,0 +1,246 @@
+---
+title: "Direct Debit API"
+description: "Create and manage direct debit contracts for recurring crypto payments. Set up automated billing with customer-approved spending limits."
+---
+
+## Endpoints
+
+| Method | Endpoint                              | Description              | Rate Limit  |
+| ------ | ------------------------------------- | ------------------------ | ----------- |
+| GET    | `/v1/direct-debit/scenario-code/list` | List scenario codes      | 300 req/min |
+| POST   | `/v1/direct-debit`                    | Create a new contract    | 50 req/min  |
+| GET    | `/v1/direct-debit/list`               | List contracts           | 200 req/min |
+| GET    | `/v1/direct-debit/:id`                | Get contract details     | 300 req/min |
+
+---
+
+## List Scenario Codes
+
+Retrieve available scenario codes for direct debit contracts. This is a public endpoint that does not require authentication.
+
+```
+GET /v1/direct-debit/scenario-code/list
+```
+
+### Query Parameters
+
+| Parameter  | Type   | Required | Description                                                  |
+| ---------- | ------ | -------- | ------------------------------------------------------------ |
+| `provider` | string | No       | Filter by provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY` |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/direct-debit/scenario-code/list?provider=BINANCE_PAY"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "data": [
+    {
+      "id": "sc_abc123",
+      "provider": "BINANCE_PAY",
+      "scenarioCode": "RECURRING_SUBSCRIPTION",
+      "description": "Recurring subscription payments"
+    }
+  ]
+}
+```
+
+---
+
+## Create Contract
+
+Create a new direct debit contract. Returns a contract with approval links for the customer to authorize.
+
+```
+POST /v1/direct-debit
+```
+
+### Authentication
+
+Requires [HMAC authentication](./authentication.md) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Request Body
+
+| Field              | Type          | Required | Description                                     |
+| ------------------ | ------------- | -------- | ----------------------------------------------- |
+| `scenarioId`       | string        | Yes      | Scenario code ID from the scenario codes list   |
+| `serviceName`      | string        | Yes      | Name of the service for this contract           |
+| `currency`         | string        | Yes      | Currency code: `USDT` or `USDC`                 |
+| `singleUpperLimit` | number        | Yes      | Maximum amount allowed per transaction          |
+| `returnUrl`        | string        | Yes      | URL to redirect customers after approval        |
+| `cancelUrl`        | string        | Yes      | URL to redirect customers if they cancel        |
+| `webhookUrl`       | string        | No       | URL to receive contract status notifications    |
+| `branchId`         | string (UUID) | No       | Branch ID for multi-branch merchants            |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/direct-debit" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "scenarioId": "sc_abc123",
+    "serviceName": "Premium Monthly Plan",
+    "currency": "USDT",
+    "singleUpperLimit": 100,
+    "returnUrl": "https://yourstore.com/direct-debit/success",
+    "cancelUrl": "https://yourstore.com/direct-debit/cancelled",
+    "webhookUrl": "https://yourstore.com/webhooks/direct-debit"
+  }'
+```
+
+### Example Response (201 Created)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "contractCode": "dd_contract_abc123",
+  "scenarioId": "sc_abc123",
+  "serviceName": "Premium Monthly Plan",
+  "currency": "USDT",
+  "singleUpperLimit": 100,
+  "returnUrl": "https://yourstore.com/direct-debit/success",
+  "cancelUrl": "https://yourstore.com/direct-debit/cancelled",
+  "webhookUrl": "https://yourstore.com/webhooks/direct-debit",
+  "status": "INITIAL",
+  "approvalUrl": "https://checkout.provider.com/approve/abc123",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## List Contracts
+
+Retrieve a paginated list of your direct debit contracts.
+
+```
+GET /v1/direct-debit/list
+```
+
+### Query Parameters
+
+| Parameter         | Type   | Default | Description                                                                       |
+| ----------------- | ------ | ------- | --------------------------------------------------------------------------------- |
+| `page`            | number | 1       | Page number                                                                       |
+| `limit`           | number | 20      | Items per page (max: 100)                                                         |
+| `status`          | string | -       | Filter by status: `INITIAL`, `CONTRACT_SIGNED`, `CONTRACT_TERMINATED`, `CONTRACT_EXPIRED` |
+| `branchId`        | string | -       | Filter by branch ID                                                               |
+| `currency`        | string | -       | Filter by currency: `USDT` or `USDC`                                             |
+| `paymentProvider` | string | -       | Filter by provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY`                     |
+| `search`          | string | -       | Search by contract code or service name                                           |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/direct-debit/list?page=1&limit=20&status=CONTRACT_SIGNED" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "contractCode": "dd_contract_abc123",
+      "serviceName": "Premium Monthly Plan",
+      "currency": "USDT",
+      "singleUpperLimit": 100,
+      "status": "CONTRACT_SIGNED",
+      "paymentProvider": "BINANCE_PAY",
+      "createdAt": "2025-01-15T10:30:00.000Z"
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 12,
+  "totalPages": 1,
+  "hasNext": false,
+  "hasPrev": false
+}
+```
+
+---
+
+## Get Contract
+
+Retrieve details for a specific direct debit contract.
+
+```
+GET /v1/direct-debit/:id
+```
+
+### Path Parameters
+
+| Parameter | Type   | Description   |
+| --------- | ------ | ------------- |
+| `id`      | string | Contract UUID |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "contractCode": "dd_contract_abc123",
+  "scenarioId": "sc_abc123",
+  "serviceName": "Premium Monthly Plan",
+  "currency": "USDT",
+  "singleUpperLimit": 100,
+  "returnUrl": "https://yourstore.com/direct-debit/success",
+  "cancelUrl": "https://yourstore.com/direct-debit/cancelled",
+  "webhookUrl": "https://yourstore.com/webhooks/direct-debit",
+  "status": "CONTRACT_SIGNED",
+  "paymentProvider": "BINANCE_PAY",
+  "createdAt": "2025-01-15T10:30:00.000Z",
+  "updatedAt": "2025-01-15T10:35:00.000Z"
+}
+```
+
+---
+
+## Contract Status
+
+| Status                | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| `INITIAL`             | Contract created, awaiting customer approval     |
+| `CONTRACT_SIGNED`     | Customer approved the direct debit contract      |
+| `CONTRACT_TERMINATED` | Contract terminated by merchant or customer      |
+| `CONTRACT_EXPIRED`    | Contract expired before customer approval        |
+
+---
+
+## Error Codes
+
+| Status | Description                              |
+| ------ | ---------------------------------------- |
+| 400    | Bad Request - Invalid data.              |
+| 401    | Unauthorized - Invalid signature.        |
+| 403    | Forbidden - Access denied.               |
+| 404    | Not Found - Contract not found.          |
+| 429    | Too Many Requests - Rate limit exceeded. |
