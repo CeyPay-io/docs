@@ -90,7 +90,8 @@
                         "group": "Core Resources",
                         "pages": [
                             "api/v1/payments",
-                            "api/v1/payment-links"
+                            "api/v1/payment-links",
+                            "api/v1/direct-debit"
                         ]
                     },
                     {
