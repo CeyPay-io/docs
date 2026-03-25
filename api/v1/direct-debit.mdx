@@ -5,15 +5,15 @@ description: "Create and manage Direct Debit contracts for recurring payments an
 
 ## Endpoints
 
-| Method | Endpoint                            | Description                    | Rate Limit  |
-| ------ | ----------------------------------- | ------------------------------ | ----------- |
-| GET    | `/v1/direct-debit/scenario-code/list` | Get supported scenario codes | 200 req/min |
-| POST   | `/v1/direct-debit`                  | Create a new contract          | 100 req/min |
-| GET    | `/v1/direct-debit/list`             | List contracts                 | 100 req/min |
-| GET    | `/v1/direct-debit/:id`              | Get contract details           | 100 req/min |
-| POST   | `/v1/direct-debit/:id/sync`         | Query/sync contract status     | 50 req/min  |
-| POST   | `/v1/direct-debit/:id/terminate`    | Terminate a contract           | 50 req/min  |
-| POST   | `/v1/direct-debit/:id/payment`      | Execute payment against contract | 100 req/min |
+| Method | Endpoint                              | Description                      | Rate Limit  |
+| ------ | ------------------------------------- | -------------------------------- | ----------- |
+| GET    | `/v1/direct-debit/scenario-code/list` | Get supported scenario codes     | 200 req/min |
+| POST   | `/v1/direct-debit`                    | Create a new contract            | 100 req/min |
+| GET    | `/v1/direct-debit/list`               | List contracts                   | 100 req/min |
+| GET    | `/v1/direct-debit/:id`                | Get contract details             | 100 req/min |
+| POST   | `/v1/direct-debit/:id/sync`           | Query/sync contract status       | 50 req/min  |
+| POST   | `/v1/direct-debit/:id/terminate`      | Terminate a contract             | 50 req/min  |
+| POST   | `/v1/direct-debit/:id/payment`        | Execute payment against contract | 100 req/min |
 
 ---
 
@@ -35,10 +35,10 @@ Requires [HMAC authentication](./authentication.md) with headers:
 
 ### Query Parameters
 
-| Parameter  | Type   | Required | Description                                                   |
-| ---------- | ------ | -------- | ------------------------------------------------------------- |
+| Parameter  | Type   | Required | Description                                                          |
+| ---------- | ------ | -------- | -------------------------------------------------------------------- |
 | `provider` | string | No       | Filter by payment provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY` |
-| `active`   | string | No       | Filter by active status (`true`/`false`, default: `true`)     |
+| `active`   | string | No       | Filter by active status (true/false, default: true)                  |
 
 ### Example Request
 
@@ -77,7 +77,7 @@ curl "https://api.ceypay.io/v1/direct-debit/scenario-code/list?provider=BINANCE_
 
 ## Create Contract
 
-Creates a pre-authorization contract that users can sign to enable on-demand payments. Supports multiple payment providers (currently: `BINANCE_PAY`). Returns QR code and deep link for user approval.
+Creates a pre-authorization contract that users can sign to enable on-demand payments. Supports multiple payment providers (currently: BINANCE_PAY). Returns QR code and deep link for user approval.
 
 ```
 POST /v1/direct-debit
@@ -93,17 +93,17 @@ Requires [HMAC authentication](./authentication.md) with headers:
 
 ### Request Body
 
-| Field                  | Type          | Required | Description                                                                              |
-| ---------------------- | ------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `provider`             | string        | Yes      | Payment provider: `BINANCE_PAY`                                                          |
+| Field                  | Type          | Required | Description                                                                                |
+| ---------------------- | ------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `provider`             | string        | Yes      | Payment provider: `BINANCE_PAY`                                                            |
 | `merchantContractCode` | string        | No       | Unique merchant contract code (alphanumeric, max 32 chars). Auto-generated if not provided |
-| `branchId`             | string (UUID) | No       | Branch ID to associate this contract with                                                |
-| `serviceName`          | string        | Yes      | Service name displayed to user (max 32 chars)                                            |
-| `scenarioId`           | string (UUID) | Yes      | Scenario ID from the `scenario-code/list` endpoint                                       |
-| `singleUpperLimit`     | number        | Yes      | Maximum amount per transaction (min 0.01)                                                |
-| `webhookUrl`           | string        | No       | Webhook URL for contract events                                                          |
-| `returnUrl`            | string (URL)  | Yes      | URL to redirect user after successful contract signing (max 512 chars)                   |
-| `cancelUrl`            | string (URL)  | Yes      | URL to redirect user after contract signing cancellation (max 512 chars)                 |
+| `branchId`             | string (UUID) | No       | Branch ID to associate this contract with                                                  |
+| `serviceName`          | string        | Yes      | Service name displayed to user (max 32 chars)                                              |
+| `scenarioId`           | string (UUID) | Yes      | Scenario ID from scenario-code/list endpoint                                               |
+| `singleUpperLimit`     | number        | Yes      | Maximum amount per transaction (min 0.01)                                                  |
+| `webhookUrl`           | string        | No       | Webhook URL for contract events                                                            |
+| `returnUrl`            | string (URL)  | Yes      | URL to redirect user after successful contract signing (max 512 chars)                     |
+| `cancelUrl`            | string (URL)  | Yes      | URL to redirect user after contract signing cancellation (max 512 chars)                   |
 
 ### Example Request
 
@@ -124,7 +124,7 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit" \
   }'
 ```
 
-### Example Response (201 Created)
+### Example Response
 
 ```json
 {
@@ -132,7 +132,7 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit" \
   "merchantId": "merchant_12345",
   "merchantContractCode": "DD20260309120530A3F4",
   "serviceName": "Monthly Subscription",
-  "status": "INITIAL",
+  "status": "INITIATED",
   "currency": "USDT",
   "singleUpperLimit": 100.0,
   "paymentProvider": "BINANCE_PAY",
@@ -171,26 +171,26 @@ Requires [HMAC authentication](./authentication.md) with headers:
 
 ### Query Parameters
 
-| Parameter         | Type          | Required | Description                                                                              |
-| ----------------- | ------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `page`            | number        | No       | Page number (default: 1)                                                                 |
-| `limit`           | number        | No       | Items per page (default: 20, max: 100)                                                   |
-| `status`          | string        | No       | Filter by status: `INITIAL`, `CONTRACT_SIGNED`, `CONTRACT_TERMINATED`, `CONTRACT_EXPIRED` |
-| `branchId`        | string (UUID) | No       | Filter by branch ID                                                                      |
-| `currency`        | string        | No       | Filter by currency: `USDT`, `USDC`                                                       |
-| `paymentProvider` | string        | No       | Filter by provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY`                            |
-| `search`          | string        | No       | Search by merchant contract code or service name                                         |
+| Parameter         | Type          | Required | Description                                                            |
+| ----------------- | ------------- | -------- | ---------------------------------------------------------------------- |
+| `page`            | number        | No       | Page number (default: 1)                                               |
+| `limit`           | number        | No       | Items per page (default: 20, max: 100)                                 |
+| `status`          | string        | No       | Filter by status: `INITIATED`, `SIGNED`, `TERMINATED`, `EXPIRED`       |
+| `branchId`        | string (UUID) | No       | Filter by branch ID                                                    |
+| `currency`        | string        | No       | Filter by currency: `USDT`, `USDC`                                     |
+| `paymentProvider` | string        | No       | Filter by provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY`          |
+| `search`          | string        | No       | Search by merchant contract code or service name                       |
 
 ### Example Request
 
 ```bash
-curl "https://api.ceypay.io/v1/direct-debit/list?page=1&limit=20&status=CONTRACT_SIGNED" \
+curl "https://api.ceypay.io/v1/direct-debit/list?page=1&limit=20&status=SIGNED" \
   -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1705315800000" \
   -H "x-signature: your_signature_here"
 ```
 
-### Example Response (200 OK)
+### Example Response
 
 ```json
 {
@@ -199,7 +199,7 @@ curl "https://api.ceypay.io/v1/direct-debit/list?page=1&limit=20&status=CONTRACT
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "merchantContractCode": "DD20260309120530A3F4",
       "serviceName": "Monthly Subscription",
-      "status": "CONTRACT_SIGNED",
+      "status": "SIGNED",
       "currency": "USDT",
       "singleUpperLimit": 100.0,
       "paymentProvider": "BINANCE_PAY",
@@ -255,6 +255,37 @@ curl "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000
   -H "x-signature: your_signature_here"
 ```
 
+### Example Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "branchId": "550e8400-e29b-41d4-a716-446655440002",
+  "paymentProvider": "BINANCE_PAY",
+  "merchantContractCode": "DD20260309120530A3F4",
+  "preContractId": "29383937493038367292",
+  "contractId": 123456789,
+  "bizId": "420471959722147840",
+  "serviceName": "Monthly Subscription",
+  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+  "currency": "USDT",
+  "singleUpperLimit": 100.0,
+  "periodic": false,
+  "contractEndTime": "2027-03-25T00:00:00.000Z",
+  "requestExpireTime": "2026-03-26T00:00:00.000Z",
+  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
+  "merchantAccountNo": "user@example.com",
+  "status": "SIGNED",
+  "paymentCount": 3,
+  "totalAmountCharged": 150.0,
+  "lastPaymentAt": "2026-03-24T10:30:00.000Z",
+  "webhookUrl": "https://your-app.com/api/contract-webhook",
+  "createdAt": "2026-03-25T10:30:00.000Z",
+  "updatedAt": "2026-03-25T11:00:00.000Z"
+}
+```
+
 ### Error Responses
 
 | Status | Description                                        |
@@ -303,9 +334,34 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-4466
   -d '{}'
 ```
 
-### Response
+### Example Response
 
-Returns the contract object with updated status.
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "paymentProvider": "BINANCE_PAY",
+  "merchantContractCode": "DD20260309120530A3F4",
+  "preContractId": "29383937493038367292",
+  "contractId": 123456789,
+  "bizId": "420471959722147840",
+  "serviceName": "Monthly Subscription",
+  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+  "currency": "USDT",
+  "singleUpperLimit": 100.0,
+  "periodic": false,
+  "contractEndTime": "2027-03-25T00:00:00.000Z",
+  "requestExpireTime": "2026-03-26T00:00:00.000Z",
+  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
+  "merchantAccountNo": "user@example.com",
+  "status": "SIGNED",
+  "paymentCount": 0,
+  "totalAmountCharged": 0,
+  "webhookUrl": "https://your-app.com/api/contract-webhook",
+  "createdAt": "2026-03-25T10:30:00.000Z",
+  "updatedAt": "2026-03-25T11:00:00.000Z"
+}
+```
 
 ### Error Responses
 
@@ -319,7 +375,7 @@ Returns the contract object with updated status.
 
 ## Terminate Contract
 
-Terminates a signed Direct Debit contract. Only contracts in `CONTRACT_SIGNED` status can be terminated.
+Terminates a signed Direct Debit contract. Only contracts in `SIGNED` status can be terminated.
 
 ```
 POST /v1/direct-debit/:id/terminate
@@ -341,8 +397,8 @@ Requires [HMAC authentication](./authentication.md) with headers:
 
 ### Request Body
 
-| Field              | Type   | Required | Description                                            |
-| ------------------ | ------ | -------- | ------------------------------------------------------ |
+| Field              | Type   | Required | Description                                               |
+| ------------------ | ------ | -------- | --------------------------------------------------------- |
 | `terminationNotes` | string | No       | Optional notes about contract termination (max 256 chars) |
 
 ### Example Request
@@ -358,18 +414,47 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-4466
   }'
 ```
 
-### Response
+### Example Response
 
-Returns the contract object with updated status.
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "merchantId": "merchant_12345",
+  "paymentProvider": "BINANCE_PAY",
+  "merchantContractCode": "DD20260309120530A3F4",
+  "preContractId": "29383937493038367292",
+  "contractId": 123456789,
+  "bizId": "420471959722147840",
+  "serviceName": "Monthly Subscription",
+  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+  "currency": "USDT",
+  "singleUpperLimit": 100.0,
+  "periodic": false,
+  "contractEndTime": "2027-03-25T00:00:00.000Z",
+  "requestExpireTime": "2026-03-26T00:00:00.000Z",
+  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
+  "merchantAccountNo": "user@example.com",
+  "status": "TERMINATED",
+  "contractTerminationWay": 3,
+  "contractTerminationTime": "2026-03-25T12:00:00.000Z",
+  "terminationNotes": "User requested cancellation",
+  "paymentCount": 5,
+  "totalAmountCharged": 250.0,
+  "lastPaymentAt": "2026-03-24T10:30:00.000Z",
+  "webhookUrl": "https://your-app.com/api/contract-webhook",
+  "createdAt": "2026-03-25T10:30:00.000Z",
+  "updatedAt": "2026-03-25T12:00:00.000Z"
+}
+```
 
 ### Error Responses
 
-| Status | Description                                         |
-| ------ | --------------------------------------------------- |
-| 400    | Bad request - contract not in `CONTRACT_SIGNED` status |
-| 401    | Unauthorized - invalid HMAC signature               |
-| 404    | Contract not found                                  |
-| 429    | Too many requests - rate limit exceeded             |
+| Status | Description                                      |
+| ------ | ------------------------------------------------ |
+| 400    | Bad request - contract not in SIGNED status      |
+| 401    | Unauthorized - invalid HMAC signature            |
+| 404    | Contract not found                               |
+| 429    | Too many requests - rate limit exceeded          |
 
 ---
 
@@ -397,34 +482,34 @@ Requires [HMAC authentication](./authentication.md) with headers:
 
 ### Request Body
 
-| Field             | Type   | Required | Description                                            |
-| ----------------- | ------ | -------- | ------------------------------------------------------ |
-| `amount`          | number | Yes      | Payment amount (must be `<= singleUpperLimit`, min 0.01) |
-| `productName`     | string | Yes      | Product name (max 256 chars)                           |
-| `productDetail`   | string | No       | Product detail (max 256 chars)                         |
-| `goods`           | array  | No       | Array of goods items (see structure below)             |
-| `webhookUrl`      | string | No       | Webhook URL to override contract webhook               |
-| `customerBilling` | object | No       | Customer billing information (see structure below)     |
+| Field             | Type   | Required | Description                                              |
+| ----------------- | ------ | -------- | -------------------------------------------------------- |
+| `amount`          | number | Yes      | Payment amount (must be ≤ singleUpperLimit, min 0.01)    |
+| `productName`     | string | Yes      | Product name (max 256 chars)                             |
+| `productDetail`   | string | No       | Product detail (max 256 chars)                           |
+| `goods`           | array  | No       | Array of goods items (see structure below)               |
+| `webhookUrl`      | string | No       | Webhook URL to override contract webhook                 |
+| `customerBilling` | object | No       | Customer billing information (see structure below)       |
 
 #### Goods Item Structure
 
-| Field              | Type   | Required | Description                                       |
-| ------------------ | ------ | -------- | ------------------------------------------------- |
-| `goodsType`        | string | Yes      | Goods type (`01`: Tangible goods, `02`: Virtual goods) |
-| `goodsCategory`    | string | Yes      | Goods category code (e.g., `Z000`)                |
-| `referenceGoodsId` | string | Yes      | Reference goods ID                                |
-| `goodsName`        | string | Yes      | Goods name (max 256 chars)                        |
-| `goodsDetail`      | string | No       | Goods detail description (max 256 chars)          |
+| Field              | Type   | Required | Description                                        |
+| ------------------ | ------ | -------- | -------------------------------------------------- |
+| `goodsType`        | string | Yes      | Goods type (01: Tangible goods, 02: Virtual goods) |
+| `goodsCategory`    | string | Yes      | Goods category code (e.g., Z000)                   |
+| `referenceGoodsId` | string | Yes      | Reference goods ID                                 |
+| `goodsName`        | string | Yes      | Goods name (max 256 chars)                         |
+| `goodsDetail`      | string | No       | Goods detail description (max 256 chars)           |
 
 #### Customer Billing Structure
 
-| Field       | Type   | Required | Description           |
-| ----------- | ------ | -------- | --------------------- |
-| `firstName` | string | Yes      | Customer first name   |
-| `lastName`  | string | Yes      | Customer last name    |
-| `email`     | string | Yes      | Customer email        |
-| `phone`     | string | No       | Customer phone        |
-| `address`   | string | No       | Customer address      |
+| Field       | Type   | Required | Description         |
+| ----------- | ------ | -------- | ------------------- |
+| `firstName` | string | Yes      | Customer first name |
+| `lastName`  | string | Yes      | Customer last name  |
+| `email`     | string | Yes      | Customer email      |
+| `phone`     | string | No       | Customer phone      |
+| `address`   | string | No       | Customer address    |
 
 ### Example Request
 
@@ -448,7 +533,7 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-4466
   }'
 ```
 
-### Example Response (201 Created)
+### Example Response
 
 ```json
 {
@@ -474,9 +559,11 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-4466
 }
 ```
 
-<Note>
-  Direct debit payments do not include `qrContent` or `checkoutLink` fields — the payment is charged directly without user interaction. Payment starts in `INITIATED` status and transitions to `PAID` via webhook notification. In sandbox mode, payments are automatically marked as `PAID`.
-</Note>
+### Response Notes
+
+- Direct debit payments do not include `qrContent` or `checkoutLink` fields as the payment is charged directly without user interaction
+- Payment starts in `INITIATED` status and transitions to `PAID` via webhook notification
+- In sandbox mode, payments are automatically marked as `PAID`
 
 ### Error Responses
 
@@ -491,12 +578,14 @@ curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-4466
 
 ## Contract Status Reference
 
-| Status                | Description                                        |
-| --------------------- | -------------------------------------------------- |
-| `INITIAL`             | Contract created but not yet signed by user        |
-| `CONTRACT_SIGNED`     | User has signed the contract (ready for payments)  |
-| `CONTRACT_TERMINATED` | Contract has been terminated                       |
-| `CONTRACT_EXPIRED`    | Contract has expired                               |
+Direct Debit contracts have the following lifecycle statuses:
+
+| Status        | Description                                        |
+| ------------- | -------------------------------------------------- |
+| `INITIATED`   | Contract created but not yet signed by user        |
+| `SIGNED`      | User has signed the contract (ready for payments)  |
+| `TERMINATED`  | Contract has been terminated                       |
+| `EXPIRED`     | Contract has expired                               |
 
 ---
 
