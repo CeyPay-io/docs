@@ -1,0 +1,399 @@
+---
+title: "Branch API"
+description: "Create and manage branches to organise payments, payment links, and direct debit contracts across locations or teams."
+---
+
+## Endpoints
+
+| Method | Endpoint           | Description        | Rate Limit  |
+| ------ | ------------------ | ------------------ | ----------- |
+| POST   | `/v1/branch`       | Create a branch    | 60 req/min  |
+| GET    | `/v1/branch/list`  | List branches      | 200 req/min |
+| GET    | `/v1/branch/:id`   | Get branch by ID   | 300 req/min |
+| PATCH  | `/v1/branch/:id`   | Update a branch    | 60 req/min  |
+| DELETE | `/v1/branch/:id`   | Deactivate a branch | 30 req/min  |
+
+---
+
+## Create Branch
+
+Creates a new branch under the authenticated merchant. All API-created branches automatically use the merchant's bank account for settlements.
+
+```
+POST /v1/branch
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Request Body
+
+| Field               | Type   | Required | Max Length | Description                        |
+| ------------------- | ------ | -------- | ---------- | ---------------------------------- |
+| `name`              | string | Yes      | 255        | Branch name                        |
+| `code`              | string | Yes      | 50         | Unique code within the merchant    |
+| `address`           | string | No       | 255        | Street address                     |
+| `city`              | string | No       | 100        | City                               |
+| `postal_code`       | string | No       | 20         | Postal code                        |
+| `phone`             | string | No       | 20         | Contact phone                      |
+| `telegram_group_id` | string | No       | 50         | Telegram group for notifications   |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/branch" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "name": "Colombo Main Branch",
+    "code": "COL-MAIN",
+    "address": "123 Galle Road",
+    "city": "Colombo",
+    "postal_code": "00300",
+    "phone": "+94112345678",
+    "telegram_group_id": "-1001234567890"
+  }'
+```
+
+### Example Response (201 Created)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440010",
+  "merchantId": "merchant_12345",
+  "name": "Colombo Main Branch",
+  "code": "COL-MAIN",
+  "address": "123 Galle Road",
+  "city": "Colombo",
+  "postalCode": "00300",
+  "phone": "+94112345678",
+  "telegramGroupId": "-1001234567890",
+  "isActive": true,
+  "usesMerchantBankAccount": true,
+  "createdAt": "2026-04-17T10:30:00.000Z",
+  "updatedAt": "2026-04-17T10:30:00.000Z"
+}
+```
+
+### Error Responses
+
+| Status | Description                                     |
+| ------ | ----------------------------------------------- |
+| 400    | Bad request — validation error                  |
+| 401    | Unauthorized — invalid HMAC signature           |
+| 409    | Conflict — branch code already exists           |
+| 429    | Too many requests — rate limit exceeded         |
+
+---
+
+## List Branches
+
+Retrieves a paginated list of branches for the authenticated merchant. Supports filtering by active status and searching by name or code.
+
+```
+GET /v1/branch/list
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Query Parameters
+
+| Parameter   | Type              | Default      | Description             |
+| ----------- | ----------------- | ------------ | ----------------------- |
+| `page`      | integer           | 1            | Page number             |
+| `limit`     | integer           | 20           | Items per page          |
+| `search`    | string            | —            | Search by name or code  |
+| `isActive`  | `"true"` \| `"false"` | —        | Filter by active status |
+| `sortBy`    | string            | `created_at` | Sort field              |
+| `sortOrder` | `"asc"` \| `"desc"` | `desc`     | Sort direction          |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/branch/list?page=1&limit=20&isActive=true" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440010",
+      "merchantId": "merchant_12345",
+      "name": "Colombo Main Branch",
+      "code": "COL-MAIN",
+      "city": "Colombo",
+      "isActive": true,
+      "usesMerchantBankAccount": true,
+      "createdAt": "2026-04-17T10:30:00.000Z",
+      "updatedAt": "2026-04-17T10:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "totalItems": 5,
+    "totalPages": 1
+  }
+}
+```
+
+### Error Responses
+
+| Status | Description                                     |
+| ------ | ----------------------------------------------- |
+| 401    | Unauthorized — invalid HMAC signature           |
+| 429    | Too many requests — rate limit exceeded         |
+
+---
+
+## Get Branch
+
+Retrieves a single branch by ID. Only returns branches belonging to the authenticated merchant.
+
+```
+GET /v1/branch/:id
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Path Parameters
+
+| Parameter | Type          | Required | Description |
+| --------- | ------------- | -------- | ----------- |
+| `id`      | string (UUID) | Yes      | Branch ID   |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/branch/550e8400-e29b-41d4-a716-446655440010" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440010",
+  "merchantId": "merchant_12345",
+  "name": "Colombo Main Branch",
+  "code": "COL-MAIN",
+  "address": "123 Galle Road",
+  "city": "Colombo",
+  "postalCode": "00300",
+  "phone": "+94112345678",
+  "telegramGroupId": "-1001234567890",
+  "isActive": true,
+  "usesMerchantBankAccount": true,
+  "createdAt": "2026-04-17T10:30:00.000Z",
+  "updatedAt": "2026-04-17T10:30:00.000Z"
+}
+```
+
+### Error Responses
+
+| Status | Description                                              |
+| ------ | -------------------------------------------------------- |
+| 401    | Unauthorized — invalid HMAC signature                    |
+| 403    | Forbidden — branch belongs to another merchant           |
+| 404    | Branch not found                                         |
+| 429    | Too many requests — rate limit exceeded                  |
+
+---
+
+## Update Branch
+
+Updates an existing branch. All fields are optional — only include fields you want to change.
+
+```
+PATCH /v1/branch/:id
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Path Parameters
+
+| Parameter | Type          | Required | Description |
+| --------- | ------------- | -------- | ----------- |
+| `id`      | string (UUID) | Yes      | Branch ID   |
+
+### Request Body
+
+All fields are optional.
+
+| Field               | Type   | Max Length | Description                      |
+| ------------------- | ------ | ---------- | -------------------------------- |
+| `name`              | string | 255        | Branch name                      |
+| `code`              | string | 50         | Unique code within the merchant  |
+| `address`           | string | 255        | Street address                   |
+| `city`              | string | 100        | City                             |
+| `postal_code`       | string | 20         | Postal code                      |
+| `phone`             | string | 20         | Contact phone                    |
+| `telegram_group_id` | string | 50         | Telegram group for notifications |
+
+### Example Request
+
+```bash
+curl -X PATCH "https://api.ceypay.io/v1/branch/550e8400-e29b-41d4-a716-446655440010" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "phone": "+94117654321",
+    "telegram_group_id": "-1009876543210"
+  }'
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440010",
+  "merchantId": "merchant_12345",
+  "name": "Colombo Main Branch",
+  "code": "COL-MAIN",
+  "address": "123 Galle Road",
+  "city": "Colombo",
+  "postalCode": "00300",
+  "phone": "+94117654321",
+  "telegramGroupId": "-1009876543210",
+  "isActive": true,
+  "usesMerchantBankAccount": true,
+  "createdAt": "2026-04-17T10:30:00.000Z",
+  "updatedAt": "2026-04-17T11:00:00.000Z"
+}
+```
+
+### Error Responses
+
+| Status | Description                                     |
+| ------ | ----------------------------------------------- |
+| 400    | Bad request — validation error                  |
+| 401    | Unauthorized — invalid HMAC signature           |
+| 404    | Branch not found                                |
+| 409    | Conflict — branch code already in use           |
+| 429    | Too many requests — rate limit exceeded         |
+
+---
+
+## Deactivate Branch
+
+Deactivates a branch. This is a soft delete — the branch record and its associated payment history are preserved.
+
+```
+DELETE /v1/branch/:id
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Path Parameters
+
+| Parameter | Type          | Required | Description |
+| --------- | ------------- | -------- | ----------- |
+| `id`      | string (UUID) | Yes      | Branch ID   |
+
+### Example Request
+
+```bash
+curl -X DELETE "https://api.ceypay.io/v1/branch/550e8400-e29b-41d4-a716-446655440010" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Response (204 No Content)
+
+No response body.
+
+### Error Responses
+
+| Status | Description                                     |
+| ------ | ----------------------------------------------- |
+| 401    | Unauthorized — invalid HMAC signature           |
+| 404    | Branch not found                                |
+| 429    | Too many requests — rate limit exceeded         |
+
+---
+
+## Branch Object
+
+| Field                   | Type     | Description                            |
+| ----------------------- | -------- | -------------------------------------- |
+| `id`                    | UUID     | Branch ID                              |
+| `merchantId`            | UUID     | Owning merchant                        |
+| `name`                  | string   | Branch name                            |
+| `code`                  | string   | Unique code within the merchant        |
+| `address`               | string?  | Street address                         |
+| `city`                  | string?  | City                                   |
+| `postalCode`            | string?  | Postal code                            |
+| `phone`                 | string?  | Contact phone                          |
+| `telegramGroupId`       | string?  | Telegram group for notifications       |
+| `isActive`              | boolean  | Whether the branch is active           |
+| `usesMerchantBankAccount` | boolean | Always `true` for API-created branches |
+| `createdAt`             | ISO 8601 | Creation timestamp                     |
+| `updatedAt`             | ISO 8601 | Last update timestamp                  |
+
+---
+
+## Error Responses
+
+| Status | Error             | Description                              |
+| ------ | ----------------- | ---------------------------------------- |
+| 400    | Bad Request       | Invalid request body or validation error |
+| 401    | Unauthorized      | Invalid API key or signature             |
+| 403    | Forbidden         | Branch belongs to another merchant       |
+| 404    | Not Found         | Branch not found                         |
+| 409    | Conflict          | Branch code already exists               |
+| 429    | Too Many Requests | Rate limit exceeded                      |
+
+See [Error Codes](/api/v1/errors) for detailed error handling.
+
+---
+
+## Related Documentation
+
+- [Quick Start](/api/v1/quickstart) - Getting started guide
+- [Authentication](/api/v1/authentication) - HMAC signature details
+- [Payments](/api/v1/payments) - Accept payments via branches
+- [Payment Links](/api/v1/payment-links) - Assign payment links to branches
+- [Direct Debit](/api/v1/direct-debit) - Associate contracts with branches
+- [Rate Limits](/api/v1/rate-limits) - API rate limiting
+- [Errors](/api/v1/errors) - Error codes reference
