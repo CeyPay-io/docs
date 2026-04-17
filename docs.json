@@ -101,7 +101,7 @@
                     },
                     {
                         "group": "Reference",
-                        "pages": ["api/v1/errors", "api/v1/rate-limits"]
+                        "pages": ["api/v1/errors", "api/v1/rate-limits", "api/v1/payment-aggregator"]
                     }
                 ]
             },

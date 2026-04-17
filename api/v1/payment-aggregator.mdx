@@ -1,0 +1,132 @@
+---
+title: "Payment Aggregator Guide"
+description: "Use CeyPay as a payment aggregator. Create a branch for each of your customers and tie all transactions to that branch for clean per-customer reporting."
+---
+
+## Overview
+
+If you operate as a payment aggregator — accepting payments on behalf of multiple merchants, franchises, or clients — branches are how you represent each of your customers inside CeyPay.
+
+Create one branch per customer. Pass that branch's `id` in every payment, payment link, or direct debit contract you create for them. CeyPay ties all transactions to the branch, giving you clean per-customer reporting without managing separate merchant accounts.
+
+---
+
+## How It Works
+
+<Steps>
+  <Step title="Create a branch for each customer">
+    Call `POST /v1/branch` once per customer. Use a `code` that maps to your own internal customer ID so you can look it up later.
+
+    ```bash
+    curl -X POST "https://api.ceypay.io/v1/branch" \
+      -H "Content-Type: application/json" \
+      -H "x-api-key: ak_live_abc123" \
+      -H "x-timestamp: 1705315800000" \
+      -H "x-signature: your_signature_here" \
+      -d '{
+        "name": "Saman Stores",
+        "code": "CUST-00142",
+        "city": "Kandy",
+        "phone": "+94812345678"
+      }'
+    ```
+
+    Store the returned `id` — you will use it as `branchId` in every subsequent request for this customer.
+  </Step>
+
+  <Step title="Pass branchId when creating payments">
+    Include `branchId` in each payment, payment link, or direct debit contract you create for the customer.
+
+    <CodeGroup>
+      ```bash Payment
+      curl -X POST "https://api.ceypay.io/v1/payments" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ak_live_abc123" \
+        -H "x-timestamp: 1705315800000" \
+        -H "x-signature: your_signature_here" \
+        -d '{
+          "merchantTradeNo": "ORDER-00142-001",
+          "amount": 5000,
+          "currency": "LKR",
+          "branchId": "550e8400-e29b-41d4-a716-446655440010"
+        }'
+      ```
+
+      ```bash Payment Link
+      curl -X POST "https://api.ceypay.io/v1/payment-link" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ak_live_abc123" \
+        -H "x-timestamp: 1705315800000" \
+        -H "x-signature: your_signature_here" \
+        -d '{
+          "name": "Invoice #INV-0099",
+          "amount": 12500,
+          "currency": "LKR",
+          "branchId": "550e8400-e29b-41d4-a716-446655440010"
+        }'
+      ```
+
+      ```bash Direct Debit
+      curl -X POST "https://api.ceypay.io/v1/direct-debit" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ak_live_abc123" \
+        -H "x-timestamp: 1705315800000" \
+        -H "x-signature: your_signature_here" \
+        -d '{
+          "provider": "BINANCE_PAY",
+          "serviceName": "Monthly Subscription",
+          "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+          "currency": "LKR",
+          "singleUpperLimit": 50000,
+          "returnUrl": "https://your-app.com/success",
+          "cancelUrl": "https://your-app.com/cancel",
+          "branchId": "550e8400-e29b-41d4-a716-446655440010"
+        }'
+      ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Query transactions per customer">
+    Filter any list endpoint by `branchId` to retrieve all transactions for a specific customer.
+
+    ```bash
+    curl "https://api.ceypay.io/v1/payments/list?branchId=550e8400-e29b-41d4-a716-446655440010" \
+      -H "x-api-key: ak_live_abc123" \
+      -H "x-timestamp: 1705315800000" \
+      -H "x-signature: your_signature_here"
+    ```
+  </Step>
+</Steps>
+
+---
+
+## Branch Lifecycle
+
+| Event                    | Action                                               |
+| ------------------------ | ---------------------------------------------------- |
+| Customer onboards        | `POST /v1/branch` — create the branch                |
+| Customer details change  | `PATCH /v1/branch/:id` — update name, phone, etc.    |
+| Customer offboards       | `DELETE /v1/branch/:id` — deactivates the branch, preserves all payment history |
+
+<Note>
+Deleting a branch is a soft deactivation. All historical transactions remain accessible and continue to be reportable by `branchId`.
+</Note>
+
+---
+
+## Recommended Conventions
+
+**Map `code` to your internal customer ID.** The `code` field is unique per merchant and searchable. Setting it to your own customer ID (e.g., `CUST-00142`) lets you look up the branch without storing CeyPay's UUID in your own database.
+
+**Create the branch before the first transaction.** You cannot assign a `branchId` retroactively to existing payments.
+
+**One branch per customer, not per transaction.** Branches represent customers, not individual orders. Reuse the same `branchId` for all transactions belonging to the same customer.
+
+---
+
+## Related Documentation
+
+- [Branch API](/api/v1/branch) - Full endpoint reference
+- [Payments](/api/v1/payments) - Create and manage payments
+- [Payment Links](/api/v1/payment-links) - Generate shareable payment links
+- [Direct Debit](/api/v1/direct-debit) - Recurring and on-demand charges

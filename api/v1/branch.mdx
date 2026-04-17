@@ -39,9 +39,9 @@ Requires [HMAC authentication](/api/v1/authentication) with headers:
 | `code`              | string | Yes      | 50         | Unique code within the merchant    |
 | `address`           | string | No       | 255        | Street address                     |
 | `city`              | string | No       | 100        | City                               |
-| `postal_code`       | string | No       | 20         | Postal code                        |
+| `postalCode`        | string | No       | 20         | Postal code                        |
 | `phone`             | string | No       | 20         | Contact phone                      |
-| `telegram_group_id` | string | No       | 50         | Telegram group for notifications   |
+| `telegramGroupId`   | string | No       | 50         | Telegram group for notifications   |
 
 ### Example Request
 
@@ -56,9 +56,9 @@ curl -X POST "https://api.ceypay.io/v1/branch" \
     "code": "COL-MAIN",
     "address": "123 Galle Road",
     "city": "Colombo",
-    "postal_code": "00300",
+    "postalCode": "00300",
     "phone": "+94112345678",
-    "telegram_group_id": "-1001234567890"
+    "telegramGroupId": "-1001234567890"
   }'
 ```
 
@@ -258,9 +258,9 @@ All fields are optional.
 | `code`              | string | 50         | Unique code within the merchant  |
 | `address`           | string | 255        | Street address                   |
 | `city`              | string | 100        | City                             |
-| `postal_code`       | string | 20         | Postal code                      |
+| `postalCode`        | string | 20         | Postal code                      |
 | `phone`             | string | 20         | Contact phone                    |
-| `telegram_group_id` | string | 50         | Telegram group for notifications |
+| `telegramGroupId`   | string | 50         | Telegram group for notifications |
 
 ### Example Request
 
@@ -272,7 +272,7 @@ curl -X PATCH "https://api.ceypay.io/v1/branch/550e8400-e29b-41d4-a716-446655440
   -H "x-signature: your_signature_here" \
   -d '{
     "phone": "+94117654321",
-    "telegram_group_id": "-1009876543210"
+    "telegramGroupId": "-1009876543210"
   }'
 ```
 
