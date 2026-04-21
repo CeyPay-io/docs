@@ -219,43 +219,28 @@ if __name__ == '__main__':
 
 ```bash cURL
 #!/bin/bash
-
+export PATH="/usr/bin:/bin:$PATH"
 # Your API key
-API_KEY="ak_live_abc123xyz.sk_live_def456uvw"
+API_KEY="ak_live_d86855bbd8651fcb5f469203621c88e3.sk_live_6985fca378cd894dee359813bd6bb12f4a2922bc81f023f0d062631e3190ff3e"
 
 # Split into key ID and secret
 KEY_ID="${API_KEY%%.*}"
 SECRET="${API_KEY#*.}"
 
-# Derive signing key from secret
+# Derive signing key from secret (matches PHP: hash('sha256', $secret))
 SIGNING_KEY=$(echo -n "$SECRET" | sha256sum | cut -d' ' -f1)
 
 TIMESTAMP=$(date +%s)000
 METHOD="POST"
-PATH="/v1/payment"
+API_PATH="/v1/payment"
 
-BODY='{
-  "amount": 100,
-  "currency": "USDT",
-  "goods": [
-    {
-      "name": "Premium Plan",
-      "description": "Monthly subscription to premium features"
-    }
-  ],
-  "customerBilling": {
-    "email": "customer@example.com",
-    "firstName": "John",
-    "lastName": "Doe"
-  }
-}'
+BODY='{"amount":12,"currency":"USDT","provider":"BYBIT","goods":[{"name":"Wireless Headphones","description":"Noise-cancelling Bluetooth headphones","mccCode":"5732"}],"webhookUrl":"https://mystore.com/api/payment-webhook","customerBilling":{"email":"customer@example.com","firstName":"John","lastName":"Doe","phone":"+94771234567","address":"123 Main Street"}}'
 
-# Generate signature using derived signing key
-MESSAGE="${TIMESTAMP}${METHOD}${PATH}${BODY}"
+MESSAGE="${TIMESTAMP}${METHOD}${API_PATH}${BODY}"
 SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SIGNING_KEY" | cut -d' ' -f2)
 
 # Send ONLY key ID in header, not full API key
-curl -X POST "https://api.ceypay.io${PATH}" \
+curl -X POST "https://sandbox-api.ceypay.io${API_PATH}" \
   -H "Content-Type: application/json" \
   -H "x-api-key: $KEY_ID" \
   -H "x-timestamp: $TIMESTAMP" \
