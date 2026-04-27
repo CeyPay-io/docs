@@ -225,13 +225,14 @@ GET /v1/payment/list
 
 ### Query Parameters
 
-| Parameter   | Type   | Default | Description                                                |
-| ----------- | ------ | ------- | ---------------------------------------------------------- |
-| `page`      | number | 1       | Page number                                                |
-| `pageSize`  | number | 20      | Items per page                                             |
-| `status`    | string | -       | Filter by status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED` |
-| `dateRange` | string | -       | Date range preset: `last7`, `last30`, `last90`, `custom`   |
-| `search`    | string | -       | Search by payment ID or customer info                      |
+| Parameter   | Type            | Default | Description                                                                                                              |
+| ----------- | --------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `page`      | number          | 1       | Page number                                                                                                              |
+| `pageSize`  | number          | 20      | Items per page                                                                                                           |
+| `status`    | string          | -       | Filter by status: `INITIATED`, `PAID`, `EXPIRED`, `FAILED`                                                               |
+| `dateRange` | string          | -       | Date range preset: `last7`, `last30`, `last90`, `custom`                                                                 |
+| `search`    | string          | -       | Search by payment ID or customer info                                                                                    |
+| `ids`       | array\<string\> | -       | Fetch specific payments by ID. Accepts comma-separated values (`ids=id1,id2`) or repeated params (`ids[]=id1&ids[]=id2`). Maximum 50 IDs. |
 
 ### Example Request
 
