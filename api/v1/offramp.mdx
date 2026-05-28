@@ -166,6 +166,8 @@ POST /v1/aggregator/user/:id/bank-account
 | `bankCode` | number | Yes | CEFTS bank code from `GET /v1/bank/list` |
 | `accountNumber` | string | Yes | Bank account number (max 100 chars) |
 | `accountName` | string | Yes | Account holder name (max 255 chars) |
+| `beneficiaryMobile` | string | No | Beneficiary mobile number (e.g. `+94771234567`) |
+| `beneficiaryEmail` | string | No | Beneficiary email address (max 255 chars) |
 
 ### Example Request
 
@@ -191,6 +193,8 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-4
   "bankName": "Commercial Bank PLC",
   "accountNumber": "1234567890",
   "accountName": "John Doe",
+  "beneficiaryMobile": "+94771234567",
+  "beneficiaryEmail": "john.doe@example.com",
   "createdAt": "2026-05-28T10:01:00.000Z"
 }
 ```
@@ -204,6 +208,8 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-4
 | `bankName` | string | Resolved bank name |
 | `accountNumber` | string | Account number |
 | `accountName` | string | Account holder name |
+| `beneficiaryMobile` | string \| null | Beneficiary mobile number |
+| `beneficiaryEmail` | string \| null | Beneficiary email address |
 | `createdAt` | string | ISO 8601 timestamp |
 
 ---
@@ -241,6 +247,8 @@ curl "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440
     "bankName": "Commercial Bank PLC",
     "accountNumber": "1234567890",
     "accountName": "John Doe",
+    "beneficiaryMobile": "+94771234567",
+    "beneficiaryEmail": "john.doe@example.com",
     "createdAt": "2026-05-28T10:01:00.000Z"
   }
 ]
