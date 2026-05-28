@@ -14,6 +14,8 @@ description: "Convert USDT to LKR and settle directly to a Sri Lankan bank accou
 | GET | `/v1/aggregator/quote` | Get a locked FX rate | 120 req/min |
 | POST | `/v1/aggregator/offramp` | Create an offramp (USDT → LKR transfer) | 60 req/min |
 | GET | `/v1/aggregator/offramp/:id` | Get offramp status | 300 req/min |
+| GET | `/v1/aggregator/report/ledger` | Float balance ledger reconciliation report | 60 req/min |
+| GET | `/v1/aggregator/report/offramp` | Offramp transaction reconciliation report | 60 req/min |
 
 <Warning>
 The Offramp API is only available to merchants with the `AGGREGATOR` role. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable this for your account.
@@ -511,6 +513,239 @@ Use a stable, meaningful key such as your internal withdrawal ID:
 | 429 | Too Many Requests | Rate limit exceeded |
 
 See [Error Codes](/api/v1/errors) for detailed error handling.
+
+---
+
+## Reconciliation Reports
+
+Two read-only endpoints are available for reconciling your float balance and offramp activity against your own records. Both endpoints are paginated and support date-range filtering.
+
+---
+
+## Float Balance Ledger Report
+
+Returns a paginated log of every LKR movement on your float (top-ups, offramp debits, and refunds) together with period summary statistics.
+
+```
+GET /v1/aggregator/report/ledger
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | number | No | Page number, 1-indexed (default: 1) |
+| `limit` | number | No | Items per page, max 100 (default: 50) |
+| `type` | string | No | Filter by entry type: `CREDIT`, `DEBIT`, or `REFUND` |
+| `startDate` | string | No | Inclusive start date — ISO 8601 format, e.g. `2026-05-01` |
+| `endDate` | string | No | Inclusive end date — ISO 8601 format, e.g. `2026-05-31` |
+| `sortOrder` | string | No | `asc` or `desc` (default: `desc`) |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&endDate=2026-05-31&limit=50" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1748430000000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalCount": 13,
+    "limit": 50,
+    "hasNext": false,
+    "hasPrev": false
+  },
+  "summary": {
+    "currentBalanceLkr": 500000.00,
+    "totalCreditsLkr": 750000.00,
+    "totalDebitsLkr": 295500.00,
+    "totalRefundsLkr": 0.00,
+    "netMovementLkr": 454500.00,
+    "creditCount": 3,
+    "debitCount": 10,
+    "refundCount": 0,
+    "openingBalanceLkr": 45500.00,
+    "closingBalanceLkr": 500000.00
+  },
+  "ledger": [
+    {
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-334455667788",
+      "type": "DEBIT",
+      "amountLkr": 295500.00,
+      "balanceAfter": 500000.00,
+      "aggregatorOfframpId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+      "bankRef": null,
+      "notes": null,
+      "createdAt": "2026-05-28T10:00:45.000Z"
+    },
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-001122334455",
+      "type": "CREDIT",
+      "amountLkr": 1000000.00,
+      "balanceAfter": 795500.00,
+      "aggregatorOfframpId": null,
+      "bankRef": "BOC-TOPUP-789",
+      "notes": "May float top-up",
+      "createdAt": "2026-05-02T08:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Summary Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `currentBalanceLkr` | number | Live float balance at the time of the request |
+| `totalCreditsLkr` | number | Sum of all `CREDIT` entries in the date window |
+| `totalDebitsLkr` | number | Sum of all `DEBIT` entries in the date window |
+| `totalRefundsLkr` | number | Sum of all `REFUND` entries (failed offramp reversals) in the date window |
+| `netMovementLkr` | number | `credits − debits + refunds` for the period |
+| `creditCount` | number | Number of credit entries |
+| `debitCount` | number | Number of debit entries |
+| `refundCount` | number | Number of refund entries |
+| `openingBalanceLkr` | number \| null | Balance snapshot immediately before `startDate`; `null` if no `startDate` or no prior entries |
+| `closingBalanceLkr` | number \| null | Balance snapshot of the last entry on or before `endDate`; `null` if no `endDate` |
+
+### Ledger Item Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Ledger entry ID |
+| `type` | string | `CREDIT` (admin top-up), `DEBIT` (offramp charge), or `REFUND` (failed offramp reversal) |
+| `amountLkr` | number | LKR amount of this entry |
+| `balanceAfter` | number | Float balance immediately after this entry was recorded |
+| `aggregatorOfframpId` | string \| null | Linked offramp ID — set on `DEBIT` and `REFUND` entries |
+| `bankRef` | string \| null | Bank transfer reference — set on `CREDIT` entries |
+| `notes` | string \| null | Optional notes added at the time of the entry |
+| `createdAt` | string | ISO 8601 timestamp |
+
+---
+
+## Offramp Transaction Report
+
+Returns a paginated list of offramps with per-status summary statistics and a weighted average FX rate. Each row includes the partner user ID and bank details so the report is self-contained for export.
+
+```
+GET /v1/aggregator/report/offramp
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | number | No | Page number, 1-indexed (default: 1) |
+| `limit` | number | No | Items per page, max 100 (default: 50) |
+| `status` | string | No | Filter items by status: `PENDING`, `PROCESSING`, `COMPLETED`, or `FAILED` |
+| `startDate` | string | No | Inclusive start date on `created_at` — ISO 8601 format |
+| `endDate` | string | No | Inclusive end date on `created_at` — ISO 8601 format |
+| `sortBy` | string | No | `created_at` (default), `completed_at`, or `amount_lkr` |
+| `sortOrder` | string | No | `asc` or `desc` (default: `desc`) |
+
+The summary block always covers the full date window regardless of the `status` filter, so all per-status breakdowns remain visible even when the item list is filtered to a single status.
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&endDate=2026-05-31&status=COMPLETED" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1748430000000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalCount": 12,
+    "limit": 50,
+    "hasNext": false,
+    "hasPrev": false
+  },
+  "summary": {
+    "totalCount": 15,
+    "totalAmountLkr": 4425000.00,
+    "totalAmountUsdt": 15000.00,
+    "completedCount": 12,
+    "completedAmountLkr": 3540000.00,
+    "completedAmountUsdt": 12000.00,
+    "pendingCount": 1,
+    "pendingAmountLkr": 295500.00,
+    "processingCount": 1,
+    "processingAmountLkr": 295500.00,
+    "failedCount": 1,
+    "failedAmountLkr": 294000.00,
+    "averageRateUsdtLkr": 295.00000000
+  },
+  "offramps": [
+    {
+      "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+      "externalRef": "withdrawal-9876543",
+      "status": "COMPLETED",
+      "amountUsdt": 1000.00,
+      "amountLkr": 295500.00,
+      "rateUsdtLkr": 295.50,
+      "bankRef": "BOC-TX-123456",
+      "failureReason": null,
+      "externalUserId": "usr_1234567890",
+      "accountNumber": "1234567890",
+      "bankName": "Bank of Ceylon",
+      "processedAt": "2026-05-28T10:02:00.000Z",
+      "completedAt": "2026-05-28T10:05:00.000Z",
+      "failedAt": null,
+      "createdAt": "2026-05-28T10:00:45.000Z"
+    }
+  ]
+}
+```
+
+### Summary Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalCount` | number | Total offramps in the date window (all statuses) |
+| `totalAmountLkr` | number | Sum of `amountLkr` across all statuses in the window |
+| `totalAmountUsdt` | number | Sum of `amountUsdt` across all statuses in the window |
+| `completedCount` | number | Number of `COMPLETED` offramps |
+| `completedAmountLkr` | number | LKR total for completed offramps |
+| `completedAmountUsdt` | number | USDT total for completed offramps |
+| `pendingCount` | number | Number of `PENDING` offramps |
+| `pendingAmountLkr` | number | LKR total for pending offramps |
+| `processingCount` | number | Number of `PROCESSING` offramps |
+| `processingAmountLkr` | number | LKR total for processing offramps |
+| `failedCount` | number | Number of `FAILED` offramps |
+| `failedAmountLkr` | number | LKR amount returned to float via refunds |
+| `averageRateUsdtLkr` | number | Weighted average USDT/LKR rate for `COMPLETED` offramps only |
+
+### Offramp Item Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `paymentId` | string (UUID) | CeyPay offramp ID |
+| `externalRef` | string | Your idempotency key |
+| `status` | string | Current status (see [Offramp Status](#offramp-status)) |
+| `amountUsdt` | number | USDT amount |
+| `amountLkr` | number | LKR amount |
+| `rateUsdtLkr` | number | Exchange rate applied |
+| `bankRef` | string \| null | Bank transaction reference — set when `COMPLETED` |
+| `failureReason` | string \| null | Failure description — set when `FAILED` |
+| `externalUserId` | string | Your internal user ID for the end-user |
+| `accountNumber` | string | Destination bank account number |
+| `bankName` | string \| null | Destination bank name |
+| `processedAt` | string \| null | ISO 8601 timestamp when processing began |
+| `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
+| `failedAt` | string \| null | ISO 8601 timestamp when transfer failed |
+| `createdAt` | string | ISO 8601 timestamp when offramp was created |
 
 ---
 
