@@ -1,0 +1,249 @@
+---
+title: "Withdrawals API"
+description: "Request settlement of your unsettled payment balance to your registered bank account."
+---
+
+Withdrawals (settlements) let you request payout of your unsettled payment balance to your registered bank account. A withdrawal request bundles all unsettled `PAID` payments (optionally scoped to a single branch) into a settlement request.
+
+## Endpoints
+
+| Method | Endpoint               | Description                     | Rate Limit  |
+| ------ | ---------------------- | -------------------------------- | ----------- |
+| POST   | `/v1/withdrawal`       | Create a withdrawal request      | 10 req/min  |
+| GET    | `/v1/withdrawal/list`  | List withdrawal requests         | 100 req/min |
+| GET    | `/v1/withdrawal/:id`   | Get withdrawal request details   | 100 req/min |
+
+---
+
+## Create Withdrawal Request
+
+Creates a withdrawal request for all currently unsettled `PAID` payments belonging to your merchant account (or a single branch, if `branchId` is provided).
+
+```
+POST /v1/withdrawal
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/withdrawal" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "branchId": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+### Request Body
+
+| Field      | Type          | Required | Description                                                                                                                          |
+| ---------- | ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `branchId` | string (UUID) | No       | If provided, only unsettled payments for this branch are included. If omitted, all unsettled merchant-level payments are included. |
+
+### Example Response (201 Created)
+
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440000",
+  "bankRefId": "CPAY0042260615",
+  "merchantId": "550e8400-e29b-41d4-a716-446655440001",
+  "merchantName": "Acme Corp",
+  "branchId": "550e8400-e29b-41d4-a716-446655440000",
+  "settlementDate": "2026-06-15",
+  "requestedBy": "440e8400-e29b-41d4-a716-446655440002",
+  "requesterName": "Acme Admin",
+  "requestedAt": "2026-06-15T10:00:00.000Z",
+  "status": "PENDING",
+  "totalPaymentsCount": 12,
+  "totalNetAmountLkr": 450000.5,
+  "totalNetAmountUsdt": 1500.0,
+  "totalGrossAmountLkr": 465000.0,
+  "totalGrossAmountUsdt": 1550.0,
+  "totalFeesLkr": 15000.0,
+  "totalFeesUsdt": 50.0,
+  "createdAt": "2026-06-15T10:00:00.000Z",
+  "updatedAt": "2026-06-15T10:00:00.000Z"
+}
+```
+
+### Notes
+
+- **Attribution**: Since this is a programmatic request, the withdrawal is attributed to your merchant account's `ADMIN` user. At least one `ADMIN` user must exist on the merchant account, or the request will be rejected with `403`.
+- **One request per day**: Only one active (`PENDING` or `APPROVED`) withdrawal request is allowed per merchant per day.
+- **Minimum amount**: The total net amount must meet the platform's configured minimum withdrawal threshold, or the request is rejected with `400`.
+- **Auto-approval**: If the total net amount is below the platform's configured auto-approval threshold, the request is automatically approved and the fund transfer to your bank account is initiated immediately — the response may already reflect `status: "APPROVED"` in that case. Otherwise, the request stays `PENDING` until reviewed by CeyLabs admins, and the fund transfer happens upon approval.
+- **Locking**: Payments included in a withdrawal request are locked (cannot be included in another request) until the request is approved or rejected. Rejected requests release their payments back into the unsettled pool.
+
+---
+
+## List Withdrawal Requests
+
+Retrieve a paginated list of withdrawal requests for your merchant account.
+
+```
+GET /v1/withdrawal/list
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/withdrawal/list?page=1&limit=10&status=PENDING" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Query Parameters
+
+| Parameter   | Type   | Description                                                                                                          |
+| ----------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| `page`      | number | Page number (default: 1).                                                                                            |
+| `limit`     | number | Items per page, max 100 (default: 10).                                                                               |
+| `status`    | string | Filter by status: `ALL`, `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` (default: `ALL`).                            |
+| `startDate` | string | Filter by settlement date, ISO 8601 (inclusive).                                                                      |
+| `endDate`   | string | Filter by settlement date, ISO 8601 (inclusive).                                                                      |
+| `sortBy`    | string | Field to sort by: `settlement_date`, `created_at`, `total_gross_amount_lkr`, `status` (default: `settlement_date`). |
+| `sortOrder` | string | `asc` or `desc` (default: `desc`).                                                                                    |
+
+### Example Response (200 OK)
+
+```json
+{
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 1,
+    "totalCount": 2,
+    "limit": 10,
+    "hasNext": false,
+    "hasPrev": false
+  },
+  "summary": {
+    "totalRequests": 2,
+    "totalLkrAmount": 900000.0,
+    "totalUsdtAmount": 3000.0,
+    "pendingCount": 1,
+    "approvedCount": 1,
+    "rejectedCount": 0,
+    "lkrToBeClaimed": 50000.0,
+    "usdtToBeClaimed": 166.5
+  },
+  "withdrawalRequests": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440000",
+      "bankRefId": "CPAY0042260615",
+      "merchantId": "550e8400-e29b-41d4-a716-446655440001",
+      "merchantName": "Acme Corp",
+      "branchId": null,
+      "settlementDate": "2026-06-15",
+      "requestedBy": "440e8400-e29b-41d4-a716-446655440002",
+      "requesterName": "Acme Admin",
+      "requestedAt": "2026-06-15T10:00:00.000Z",
+      "status": "PENDING",
+      "totalPaymentsCount": 12,
+      "totalNetAmountLkr": 450000.5,
+      "totalNetAmountUsdt": 1500.0,
+      "totalGrossAmountLkr": 465000.0,
+      "totalGrossAmountUsdt": 1550.0,
+      "totalFeesLkr": 15000.0,
+      "totalFeesUsdt": 50.0,
+      "createdAt": "2026-06-15T10:00:00.000Z",
+      "updatedAt": "2026-06-15T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## Get Withdrawal Request
+
+Get details of a specific withdrawal request, including the payments included in it.
+
+```
+GET /v1/withdrawal/:id
+```
+
+### Authentication
+
+Requires [HMAC authentication](/api/v1/authentication) with headers:
+
+- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/withdrawal/770e8400-e29b-41d4-a716-446655440000" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (200 OK)
+
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440000",
+  "bankRefId": "CPAY0042260615",
+  "merchantId": "550e8400-e29b-41d4-a716-446655440001",
+  "merchantName": "Acme Corp",
+  "branchId": null,
+  "settlementDate": "2026-06-15",
+  "requestedBy": "440e8400-e29b-41d4-a716-446655440002",
+  "requesterName": "Acme Admin",
+  "requestedAt": "2026-06-15T10:00:00.000Z",
+  "status": "APPROVED",
+  "reviewedBy": "admin_user",
+  "reviewedAt": "2026-06-15T11:00:00.000Z",
+  "totalPaymentsCount": 12,
+  "totalNetAmountLkr": 450000.5,
+  "totalNetAmountUsdt": 1500.0,
+  "totalGrossAmountLkr": 465000.0,
+  "totalGrossAmountUsdt": 1550.0,
+  "totalFeesLkr": 15000.0,
+  "totalFeesUsdt": 50.0,
+  "merchantSettlementId": "880e8400-e29b-41d4-a716-446655440003",
+  "createdAt": "2026-06-15T10:00:00.000Z",
+  "updatedAt": "2026-06-15T11:00:00.000Z",
+  "payments": [
+    {
+      "id": "990e8400-e29b-41d4-a716-446655440004",
+      "payId": "pay_abc123xyz",
+      "status": "PAID",
+      "usdtNetAmount": 125.0,
+      "lkrNetAmount": 37500.0
+    }
+  ]
+}
+```
+
+---
+
+## Error Codes
+
+| Status | Description                                                                                                                |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 400    | Bad Request - No unsettled payments, below minimum withdrawal amount, or a withdrawal request already exists for today. |
+| 401    | Unauthorized - Invalid signature.                                                                                          |
+| 403    | Forbidden - Merchant account is inactive, not approved, or has no ADMIN user to attribute the request to.                |
+| 404    | Not Found - Withdrawal request not found.                                                                                  |
+| 429    | Too Many Requests - Rate limit exceeded.                                                                                   |
