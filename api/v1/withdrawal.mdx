@@ -60,8 +60,9 @@ curl -X POST "https://api.ceypay.io/v1/withdrawal" \
   "merchantName": "Acme Corp",
   "branchId": "550e8400-e29b-41d4-a716-446655440000",
   "settlementDate": "2026-06-15",
-  "requestedBy": "440e8400-e29b-41d4-a716-446655440002",
-  "requesterName": "Acme Admin",
+  "requestedBy": null,
+  "requesterName": "API",
+  "apiKeyId": "990e8400-e29b-41d4-a716-446655440099",
   "requestedAt": "2026-06-15T10:00:00.000Z",
   "status": "PENDING",
   "totalPaymentsCount": 12,
@@ -78,7 +79,7 @@ curl -X POST "https://api.ceypay.io/v1/withdrawal" \
 
 ### Notes
 
-- **Attribution**: Since this is a programmatic request, the withdrawal is attributed to your merchant account's `ADMIN` user. At least one `ADMIN` user must exist on the merchant account, or the request will be rejected with `403`.
+- **Attribution**: Withdrawal requests created via the public API record the `apiKeyId` of the API key that made the request; `requestedBy`/`requesterName` (dashboard user info) will be `null`/`"API"` for these requests.
 - **One request per day**: Only one active (`PENDING` or `APPROVED`) withdrawal request is allowed per merchant per day.
 - **Minimum amount**: The total net amount must meet the platform's configured minimum withdrawal threshold, or the request is rejected with `400`.
 - **Auto-approval**: If the total net amount is below the platform's configured auto-approval threshold, the request is automatically approved and the fund transfer to your bank account is initiated immediately — the response may already reflect `status: "APPROVED"` in that case. Otherwise, the request stays `PENDING` until reviewed by CeyLabs admins, and the fund transfer happens upon approval.
@@ -244,6 +245,6 @@ curl "https://api.ceypay.io/v1/withdrawal/770e8400-e29b-41d4-a716-446655440000" 
 | ------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | 400    | Bad Request - No unsettled payments, below minimum withdrawal amount, or a withdrawal request already exists for today. |
 | 401    | Unauthorized - Invalid signature.                                                                                          |
-| 403    | Forbidden - Merchant account is inactive, not approved, or has no ADMIN user to attribute the request to.                |
+| 403    | Forbidden - Merchant account is inactive or not approved.                                                                |
 | 404    | Not Found - Withdrawal request not found.                                                                                  |
 | 429    | Too Many Requests - Rate limit exceeded.                                                                                   |
