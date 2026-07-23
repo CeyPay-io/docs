@@ -1,0 +1,132 @@
+---
+title: "Sandbox Environment"
+sidebarTitle: "Sandbox Environment"
+description: "Build and test your CeyPay integration end to end without moving real funds."
+---
+
+Sandbox is a separate CeyPay environment for building and testing your integration. It mirrors the production API surface, but no real cryptocurrency moves and no settlements reach your bank account.
+
+Use it to develop against the API, exercise the full payment lifecycle, and verify your webhook handling before you touch production credentials.
+
+## Environments
+
+Sandbox is fully isolated from production — its own dashboard, its own accounts, its own data, and its own API keys.
+
+| | Production | Sandbox |
+| --- | --- | --- |
+| Dashboard | [merchant.ceypay.io](https://merchant.ceypay.io) | [sandbox.ceypay.io](https://sandbox.ceypay.io) |
+| API base URL | `https://api.ceypay.io` | `https://sandbox-api.ceypay.io` |
+
+Every endpoint page in the [API Reference](/api/v1/quickstart) has a base-URL selector in its header — switch it to sandbox and the code samples and **Try it** requests follow.
+
+<Note>
+  The environment is determined by **both** the host you call and the API key you sign with. A sandbox key stays in the sandbox even if sent to the production host, so a misrouted request fails safe rather than moving real money.
+</Note>
+
+## Getting a key
+
+Sandbox accounts are separate from production accounts. Sign in at [sandbox.ceypay.io](https://sandbox.ceypay.io), then generate a key from **Settings → API Keys** exactly as you would in production.
+
+<Warning>
+  Keys are not portable between environments. A production key will not authenticate against sandbox, and a sandbox key will not authenticate against production.
+</Warning>
+
+To try the API before creating an account, the [Quick Start](/api/v1/quickstart) publishes a shared sandbox key you can use immediately.
+
+Authentication works identically in both environments — the same HMAC-SHA256 scheme, the same three headers. See [Authentication](/api/v1/authentication).
+
+## Testing payments
+
+Create payments against the sandbox host exactly as you would in production:
+
+```bash
+curl -X POST "https://sandbox-api.ceypay.io/v1/payment" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $KEY_ID" \
+  -H "x-timestamp: $TIMESTAMP" \
+  -H "x-signature: $SIGNATURE" \
+  -d '{
+    "amount": 12,
+    "currency": "USDT",
+    "provider": "BYBIT",
+    "goods": [{ "name": "Test Product", "description": "Sandbox test" }],
+    "customerBilling": {
+      "email": "customer@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "phone": "+94771234567",
+      "address": "123 Main Street"
+    }
+  }'
+```
+
+Direct Debit charges are marked `PAID` automatically in sandbox, so you can exercise the post-payment path — order fulfilment, webhook handling, reconciliation — without a wallet.
+
+## Webhooks
+
+<Warning>
+  Sandbox signs webhooks with a **different ED25519 key** than production. Verifying sandbox deliveries against the production public key will fail every signature check.
+</Warning>
+
+Load the correct public key per environment rather than hardcoding one. Both keys are listed in the [Webhooks guide](/api/v1/webhooks).
+
+## Using the SDK
+
+The [TypeScript SDK](/integrations/sdk/typescript) takes the sandbox host through `baseUrl`:
+
+```typescript
+import { CeyPayClient } from '@ceypay/sdk';
+
+const client = new CeyPayClient({
+  apiKey: process.env.CEYPAY_API_KEY,
+  baseUrl: 'https://sandbox-api.ceypay.io',
+});
+```
+
+Drive it from an environment variable so the same build runs against either environment:
+
+```typescript
+const client = new CeyPayClient({
+  apiKey: process.env.CEYPAY_API_KEY,
+  baseUrl: process.env.CEYPAY_BASE_URL ?? 'https://api.ceypay.io',
+});
+```
+
+## Going live
+
+Before switching to production:
+
+<Steps>
+  <Step title="Swap the base URL">
+    Point your client at `https://api.ceypay.io`.
+  </Step>
+  <Step title="Swap the API key">
+    Generate a production key at [merchant.ceypay.io](https://merchant.ceypay.io) and replace the sandbox one. Your sandbox key will not authenticate against production.
+  </Step>
+  <Step title="Swap the webhook public key">
+    Load the production ED25519 key, or signature verification will reject every delivery.
+  </Step>
+  <Step title="Re-check your webhook endpoint">
+    Confirm your production endpoint is publicly reachable over HTTPS and returns `200` promptly.
+  </Step>
+  <Step title="Run one small live payment">
+    Verify end to end with a real, low-value payment before opening checkout to customers.
+  </Step>
+</Steps>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/api/v1/quickstart">
+    Your first sandbox payment
+  </Card>
+  <Card title="Authentication" icon="key" href="/api/v1/authentication">
+    HMAC signing, identical in both environments
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api/v1/webhooks">
+    Per-environment public keys and retries
+  </Card>
+  <Card title="TypeScript SDK" icon="js" href="/integrations/sdk/typescript">
+    Point the client at sandbox
+  </Card>
+</CardGroup>

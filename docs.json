@@ -56,8 +56,13 @@
                         "pages": ["/introduction"]
                     },
                     {
-                        "group": "Integrations",
+                        "group": "Integrate",
                         "pages": [
+                            "integrations/sandbox",
+                            {
+                                "group": "SDKs",
+                                "pages": ["integrations/sdk/typescript"]
+                            },
                             {
                                 "group": "WordPress",
                                 "pages": [
@@ -87,26 +92,96 @@
                         "pages": ["api/v1/quickstart", "api/v1/authentication"]
                     },
                     {
-                        "group": "Core Resources",
+                        "group": "Guides",
                         "pages": [
-                            "api/v1/payments",
-                            "api/v1/payment-links",
                             "api/v1/direct-debit",
-                            "api/v1/branch",
-                            "api/v1/withdrawal"
+                            "api/v1/offramp",
+                            "api/v1/payment-aggregator"
                         ]
                     },
                     {
-                        "group": "Webhooks",
-                        "pages": ["api/v1/webhooks"]
+                        "group": "Payments",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "POST /v1/payment",
+                            "GET /v1/payment/list",
+                            "GET /v1/payment/{id}"
+                        ]
+                    },
+                    {
+                        "group": "Payment Links",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "POST /v1/payment-link",
+                            "GET /v1/payment-link/list",
+                            "GET /v1/payment-link/{id}",
+                            "DELETE /v1/payment-link/{id}"
+                        ]
+                    },
+                    {
+                        "group": "Direct Debit",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "GET /v1/direct-debit/scenario-code/list",
+                            "POST /v1/direct-debit",
+                            "GET /v1/direct-debit/list",
+                            "GET /v1/direct-debit/{id}",
+                            "POST /v1/direct-debit/{id}/sync",
+                            "POST /v1/direct-debit/{id}/terminate",
+                            "POST /v1/direct-debit/{id}/payment"
+                        ]
+                    },
+                    {
+                        "group": "Subscriptions",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "POST /v1/subscription",
+                            "GET /v1/subscription/list",
+                            "GET /v1/subscription/{id}",
+                            "POST /v1/subscription/{id}/pause",
+                            "POST /v1/subscription/{id}/resume",
+                            "POST /v1/subscription/{id}/cancel",
+                            "GET /v1/subscription/{id}/payments"
+                        ]
+                    },
+                    {
+                        "group": "Branches",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "POST /v1/branch",
+                            "GET /v1/branch/list",
+                            "GET /v1/branch/{id}",
+                            "PATCH /v1/branch/{id}",
+                            "DELETE /v1/branch/{id}"
+                        ]
+                    },
+                    {
+                        "group": "Withdrawals",
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "POST /v1/withdrawal",
+                            "GET /v1/withdrawal/list",
+                            "GET /v1/withdrawal/{id}"
+                        ]
                     },
                     {
                         "group": "Offramp",
-                        "pages": ["api/v1/offramp"]
+                        "openapi": "api/v1/openapi.json",
+                        "pages": [
+                            "GET /v1/bank/list",
+                            "POST /v1/aggregator/user",
+                            "POST /v1/aggregator/user/{id}/bank-account",
+                            "GET /v1/aggregator/user/{id}/bank-account/list",
+                            "GET /v1/aggregator/quote",
+                            "POST /v1/aggregator/offramp",
+                            "GET /v1/aggregator/offramp/{id}",
+                            "GET /v1/aggregator/report/ledger",
+                            "GET /v1/aggregator/report/offramp"
+                        ]
                     },
                     {
                         "group": "Reference",
-                        "pages": ["api/v1/errors", "api/v1/rate-limits", "api/v1/payment-aggregator"]
+                        "pages": ["api/v1/webhooks", "api/v1/errors", "api/v1/rate-limits"]
                     }
                 ]
             },
@@ -165,11 +240,10 @@
         }
     ],
     "api": {
-        "baseUrl": "https://api.ceypay.io",
+        "url": "full",
         "playground": {
-            "mode": "simple"
-        },
-        "maintainOrder": true
+            "display": "interactive"
+        }
     },
     "seo": {
         "indexHiddenPages": false,
@@ -211,19 +285,35 @@
         },
         {
             "source": "/api/payments",
-            "destination": "/api/v1/payments"
+            "destination": "/api/v1/reference/create-payment"
         },
         {
             "source": "/api/payment-links",
-            "destination": "/api/v1/payment-links"
+            "destination": "/api/v1/reference/create-payment-link"
         },
         {
             "source": "/api/v1/payment-links-guide",
-            "destination": "/api/v1/payment-links"
+            "destination": "/api/v1/reference/create-payment-link"
         },
         {
             "source": "/api/v1/payments-guide",
-            "destination": "/api/v1/payments"
+            "destination": "/api/v1/reference/create-payment"
+        },
+        {
+            "source": "/api/v1/payments",
+            "destination": "/api/v1/reference/create-payment"
+        },
+        {
+            "source": "/api/v1/payment-links",
+            "destination": "/api/v1/reference/create-payment-link"
+        },
+        {
+            "source": "/api/v1/branch",
+            "destination": "/api/v1/reference/create-branch"
+        },
+        {
+            "source": "/api/v1/withdrawal",
+            "destination": "/api/v1/reference/create-withdrawal"
         },
         {
             "source": "/api/webhooks",
@@ -252,6 +342,10 @@
         {
             "source": "/changelog",
             "destination": "/changelog/product-updates"
+        },
+        {
+            "source": "/api/v1/sandbox",
+            "destination": "/integrations/sandbox"
         }
     ],
     "footer": {

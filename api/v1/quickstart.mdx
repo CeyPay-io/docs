@@ -10,11 +10,11 @@ description: "Get started with the CeyPay API in minutes. This guide walks you t
 ## Prerequisites
 
 <CardGroup cols={3}>
-  <Card title="Merchant Account" icon="user-check">
-    A CeyPay merchant account ([sign up here](https://merchant.ceypay.io))
+  <Card title="Sandbox Account" icon="user-check">
+    A CeyPay [sandbox account](https://sandbox.ceypay.io) — no KYC required to start building
   </Card>
   <Card title="KYC Verification" icon="id-card">
-    Completed merchant onboarding and KYC verification
+    Required only to go live at [merchant.ceypay.io](https://merchant.ceypay.io)
   </Card>
   <Card title="Programming Language" icon="code">
     Your preferred programming language (Node.js, Python, PHP, etc.)
@@ -35,7 +35,7 @@ description: "Get started with the CeyPay API in minutes. This guide walks you t
 
   </Card>
 
-  <Card title="Sandbox" icon="flask">
+  <Card title="Sandbox" icon="flask" href="/integrations/sandbox">
     Test environment for integration testing
 
     ```
@@ -64,10 +64,12 @@ Remember: The `x-api-key` header should contain ONLY the key ID (the part before
 
 <Steps>
   <Step title="Generate API Key">
-    1. Log in to your [CeyPay Dashboard](https://merchant.ceypay.io)
+    Keys are issued per environment and are **not** interchangeable. This guide uses sandbox, so generate a sandbox key.
+
+    1. Log in to the [Sandbox Dashboard](https://sandbox.ceypay.io) — or [merchant.ceypay.io](https://merchant.ceypay.io) when you are ready for production
     2. Navigate to **Settings** → **API Keys**
     3. Click **Generate New API Key**
-    4. Give it a descriptive name (e.g., "Production API Key")
+    4. Give it a descriptive name (e.g., "Sandbox API Key")
     5. **Copy the API key immediately** (you'll only see it once!)
 
     Your API key looks like: `ak_live_abc123xyz.sk_live_def456uvw`
@@ -77,12 +79,20 @@ Remember: The `x-api-key` header should contain ONLY the key ID (the part before
 
     **Important**: Store your API key securely (environment variable, secrets manager, etc.)
 
+    <Note>
+      A sandbox key will not authenticate against production, and a production key will not authenticate against sandbox. See the [Sandbox guide](/integrations/sandbox) for the full comparison.
+    </Note>
+
   </Step>
 
   <Step title="Make Your First API Call">
     ### Create a Payment
 
-    Let's create a simple payment for $100 USDT:
+    Let's create a simple payment for $100 USDT.
+
+    <Note>
+      Every example below targets **sandbox** (`https://sandbox-api.ceypay.io`). To go live, swap the base URL to `https://api.ceypay.io` and use a production key — nothing else changes.
+    </Note>
 
     <CodeGroup>
 
@@ -128,7 +138,7 @@ async function createPayment() {
 
   // Make request - send ONLY key ID, not full API key
   const response = await axios.post(
-    `https://api.ceypay.io${path}`,
+    `https://sandbox-api.ceypay.io${path}`,
     JSON.parse(body),
     {
       headers: {
@@ -197,7 +207,7 @@ def create_payment():
 
     # Make request - send ONLY key ID, not full API key
     response = requests.post(
-        f'https://api.ceypay.io{path}',
+        f'https://sandbox-api.ceypay.io{path}',
         json=body_dict,
         headers={
             'x-api-key': key_id,  # Only the key ID!
@@ -371,7 +381,7 @@ TIMESTAMP=$(date +%s)000
 MESSAGE="${TIMESTAMP}POST/v1/webhooks/test{\"webhookUrl\": \"https://your-app.com/webhooks/ceypay\"}"
 SIGNATURE=$(echo -n "$MESSAGE" | openssl dgst -sha256 -hmac "$SIGNING_KEY" | cut -d' ' -f2)
 
-curl -X POST https://api.ceypay.io/v1/webhooks/test \
+curl -X POST https://sandbox-api.ceypay.io/v1/webhooks/test \
   -H "x-api-key: $KEY_ID" \
   -H "x-timestamp: $TIMESTAMP" \
   -H "x-signature: $SIGNATURE" \
@@ -461,7 +471,7 @@ sendEmail({
   <Card title="Webhooks" icon="webhook" href="/api/v1/webhooks">
     Complete webhook integration guide
   </Card>
-  <Card title="Payment Links" icon="link" href="/api/v1/payment-links">
+  <Card title="Payment Links" icon="link" href="/api/v1/reference/create-payment-link">
     Guide to using payment links
   </Card>
   <Card
@@ -499,7 +509,7 @@ sendEmail({
 
 ### API Reference
 
-Full API documentation available at: [https://api.ceypay.io/api-docs](https://api.ceypay.io/api-docs)
+Full endpoint reference, with request and response schemas and an interactive playground, is in the [API Reference](/api/v1/reference/create-payment).
 
 ### Support
 
