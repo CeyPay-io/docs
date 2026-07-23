@@ -280,7 +280,7 @@ POST /v1/payment/:id/refund
 - Supported across all three payment providers: **Binance Pay**, **Bybit Pay**, and **KuCoin Pay**.
 - Reverses the merchant ledger, decrements merchant revenue, reverses any `PENDING`/`ACCRUED` affiliate commission tied to the payment, and marks the payment `REFUNDED`.
 - If your unsettled balance (LKR and USDT) can't absorb the refund amount, the request fails with `422` and no refund record is created — an admin must record a fiat topup before you can retry.
-- Already-`PAID` affiliate commissions aren't clawed back automatically; CeyLabs is notified for manual follow-up.
+- Already-`PAID` affiliate commissions aren't clawed back automatically; CeyPay is notified for manual follow-up.
 - This endpoint is full-refund only — partial refunds aren't supported.
 
 ### Path Parameters

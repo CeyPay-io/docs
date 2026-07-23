@@ -82,7 +82,7 @@ curl -X POST "https://api.ceypay.io/v1/withdrawal" \
 - **Attribution**: Withdrawal requests created via the public API record the `apiKeyId` of the API key that made the request; `requestedBy`/`requesterName` (dashboard user info) will be `null`/`"API"` for these requests.
 - **One request per day**: Only one active (`PENDING` or `APPROVED`) withdrawal request is allowed per merchant per day.
 - **Minimum amount**: The total net amount must meet the platform's configured minimum withdrawal threshold, or the request is rejected with `400`.
-- **Auto-approval**: If the total net amount is below the platform's configured auto-approval threshold, the request is automatically approved and the fund transfer to your bank account is initiated immediately — the response may already reflect `status: "APPROVED"` in that case. Otherwise, the request stays `PENDING` until reviewed by CeyLabs admins, and the fund transfer happens upon approval.
+- **Auto-approval**: If the total net amount is below the platform's configured auto-approval threshold, the request is automatically approved and the fund transfer to your bank account is initiated immediately — the response may already reflect `status: "APPROVED"` in that case. Otherwise, the request stays `PENDING` until reviewed by CeyPay admins, and the fund transfer happens upon approval.
 - **Locking**: Payments included in a withdrawal request are locked (cannot be included in another request) until the request is approved or rejected. Rejected requests release their payments back into the unsettled pool.
 
 ---
