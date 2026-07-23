@@ -1,0 +1,378 @@
+---
+title: "TypeScript SDK"
+sidebarTitle: "TypeScript"
+icon: "js"
+description: "Official TypeScript and JavaScript client for the CeyPay API. Fully typed, with HMAC request signing and webhook verification built in."
+---
+
+<Info>
+  TypeScript is currently the only official SDK. For every other language, call the [REST API](/api/v1/quickstart) directly — the [Authentication guide](/api/v1/authentication) has signing examples in Python, PHP, and Ruby.
+</Info>
+
+The SDK wraps the CeyPay API in a fully typed client. It signs every request for you, so you never implement HMAC-SHA256 by hand, and ships type definitions for every request and response.
+
+<CardGroup cols={2}>
+  <Card title="npm" icon="npm" href="https://www.npmjs.com/package/@ceypay/sdk">
+    `@ceypay/sdk`
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/CeyLabs/CeyPay-JS-SDK">
+    Source, examples, and issues
+  </Card>
+</CardGroup>
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install @ceypay/sdk
+```
+
+```bash yarn
+yarn add @ceypay/sdk
+```
+
+```bash pnpm
+pnpm add @ceypay/sdk
+```
+
+</CodeGroup>
+
+Works with both ESM and CommonJS.
+
+## Quickstart
+
+<Warning>
+  The SDK is **server-side only**. Your API key contains a secret half (`sk_live_…`) used to derive the signing key — never ship it to a browser, mobile app, or any client bundle.
+</Warning>
+
+Generate an API key from **Settings → API Keys** in the [dashboard](https://merchant.ceypay.io), store it in an environment variable, then:
+
+```typescript
+import { CeyPayClient, Currency } from '@ceypay/sdk';
+
+const client = new CeyPayClient({
+  apiKey: process.env.CEYPAY_API_KEY,
+});
+
+const payment = await client.payments.create({
+  amount: 100,
+  currency: Currency.USDT,
+  goods: [
+    {
+      name: 'Premium Plan',
+      description: 'Monthly subscription',
+    },
+  ],
+  customerBilling: {
+    email: 'customer@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+  },
+});
+
+console.log('Checkout link:', payment.checkoutLink);
+console.log('QR code:', payment.qrContent);
+```
+
+Redirect the customer to `checkoutLink`, or render `qrContent` as a QR code for wallet scanning.
+
+## Sandbox environment
+
+Point the client at the sandbox host to test without moving real funds:
+
+```typescript
+const client = new CeyPayClient({
+  apiKey: process.env.CEYPAY_API_KEY,
+  baseUrl: 'https://sandbox-api.ceypay.io',
+});
+```
+
+The API key you sign with also determines the environment, so a sandbox key stays in the sandbox regardless of host. See the [Sandbox guide](/integrations/sandbox) for keys, webhook differences, and the go-live checklist.
+
+## Configuration
+
+```typescript
+const client = new CeyPayClient({
+  apiKey: 'ak_live_xxx.sk_live_xxx', // Required
+  baseUrl: 'https://api.ceypay.io',  // Optional (default)
+  timeout: 30000,                    // Optional, ms (default: 30000)
+  debug: false,                      // Optional debug logging (default: false)
+});
+```
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `apiKey` | string | Yes | Full API key, both halves, `keyId.secret` |
+| `baseUrl` | string | No | API base URL. Defaults to `https://api.ceypay.io` |
+| `timeout` | number | No | Request timeout in milliseconds. Defaults to `30000` |
+| `debug` | boolean | No | Log requests and responses. Defaults to `false` |
+
+## Payments
+
+### Create
+
+```typescript
+const payment = await client.payments.create({
+  amount: 149.99,
+  currency: Currency.USDT, // or Currency.LKR
+  goods: [
+    {
+      name: 'Premium Plan - Annual',
+      description: 'One year subscription to premium features',
+    },
+  ],
+  customerBilling: {
+    email: 'customer@example.com',
+    firstName: 'John',
+    lastName: 'Doe',
+    phone: '+94771234567',
+  },
+  webhookUrl: 'https://your-app.com/webhooks/ceypay', // Optional
+});
+```
+
+Amounts in `LKR` are converted to USDT at the current rate, and the response carries the full LKR fee breakdown. See [Create payment](/api/v1/reference/create-payment).
+
+### Retrieve
+
+```typescript
+const payment = await client.payments.get('550e8400-e29b-41d4-a716-446655440000');
+
+console.log('Status:', payment.status); // INITIATED, PAID, EXPIRED, FAILED
+
+if (payment.status === 'PAID') {
+  console.log('Paid at:', payment.paidAt);
+  console.log('Fee breakdown:', payment.feeBreakdown);
+}
+```
+
+### List
+
+```typescript
+const result = await client.payments.list({ page: 1, pageSize: 20 });
+
+// Filter by status
+await client.payments.list({ status: PaymentStatus.PAID, page: 1, pageSize: 50 });
+
+// Filter by date range
+await client.payments.list({
+  createdAfter: '2026-01-01T00:00:00Z',
+  createdBefore: '2026-01-31T23:59:59Z',
+});
+
+// Filter by branch, for multi-branch merchants
+await client.payments.list({ branchId: 'branch-id-here' });
+```
+
+## Payment Links
+
+```typescript
+// Fixed amount
+const link = await client.paymentLinks.create({
+  name: 'Premium Plan - Monthly',
+  description: 'Monthly subscription',
+  amount: 49.99,
+  currency: Currency.USDT,
+  allowCustomAmount: false,
+  reusable: true,
+});
+
+console.log('Share this link:', link.checkoutUrl);
+
+// Custom amount, for donations
+const donationLink = await client.paymentLinks.create({
+  name: 'Support Us',
+  currency: Currency.USDT,
+  allowCustomAmount: true,
+  minAmount: 5,
+  maxAmount: 1000,
+  reusable: true,
+});
+
+// Single-use invoice with an expiry
+const invoiceLink = await client.paymentLinks.create({
+  name: 'Invoice #12345',
+  amount: 500,
+  currency: Currency.USDT,
+  allowCustomAmount: false,
+  reusable: false,
+  expirationDate: '2026-12-31T23:59:59Z',
+});
+
+// Update, and deactivate
+await client.paymentLinks.update(link.id, { amount: 59.99 });
+await client.paymentLinks.delete(link.id);
+
+// List
+await client.paymentLinks.list({ status: PaymentLinkStatus.ACTIVE, page: 1, pageSize: 10 });
+```
+
+## Webhooks
+
+The SDK verifies webhook signatures for you. Mount a **raw** body parser on the webhook route — parsing to JSON first breaks signature verification.
+
+```typescript
+import express from 'express';
+import { verifyWebhookExpress, WebhookPayload } from '@ceypay/sdk';
+
+const app = express();
+
+app.use('/webhooks/ceypay', express.raw({ type: 'application/json' }));
+
+app.post('/webhooks/ceypay', (req, res) => {
+  if (!verifyWebhookExpress(req, process.env.CEYPAY_WEBHOOK_SECRET)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  const payload: WebhookPayload = JSON.parse(req.body.toString('utf8'));
+
+  switch (payload.status) {
+    case 'PAID':
+      // Fulfil the order
+      break;
+    case 'EXPIRED':
+      // Release the reservation
+      break;
+    case 'FAILED':
+      // Notify the customer
+      break;
+  }
+
+  res.status(200).json({ received: true });
+});
+```
+
+Respond `200` immediately and process asynchronously — see the [Webhooks guide](/api/v1/webhooks) for the retry schedule.
+
+Outside Express, use `verifyWebhook(options)` with the raw body, signature header, and secret.
+
+```typescript
+// Fetch your webhook secret
+const config = await client.webhooks.getConfig();
+
+// Send a test delivery to your endpoint
+const result = await client.webhooks.test('https://your-app.com/webhooks/ceypay');
+```
+
+## Error handling
+
+Every failure throws a typed error, so you can branch on the class rather than parsing status codes.
+
+```typescript
+import {
+  AuthenticationError,
+  ValidationError,
+  NotFoundError,
+  RateLimitError,
+} from '@ceypay/sdk';
+
+try {
+  const payment = await client.payments.create(data);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    error.validationErrors?.forEach((err) => {
+      console.error(`${err.field}: ${err.message}`);
+    });
+  } else if (error instanceof AuthenticationError) {
+    console.error('Invalid API key or signature');
+  } else if (error instanceof NotFoundError) {
+    console.error('Resource not found');
+  } else if (error instanceof RateLimitError) {
+    console.error('Rate limited, retry after', error.retryAfter, 'seconds');
+  } else {
+    throw error;
+  }
+}
+```
+
+| Error | Status | Notes |
+| --- | --- | --- |
+| `CeyPayError` | — | Base class for all SDK errors |
+| `ValidationError` | 400 | Carries `validationErrors` with per-field detail |
+| `AuthenticationError` | 401 | Bad key, signature, or expired timestamp |
+| `ForbiddenError` | 403 | Resource belongs to another merchant |
+| `NotFoundError` | 404 | |
+| `ConflictError` | 409 | |
+| `GoneError` | 410 | |
+| `UnprocessableEntityError` | 422 | |
+| `RateLimitError` | 429 | Carries `retryAfter` in seconds |
+| `InternalServerError` | 500 | |
+| `BadGatewayError` | 502 | |
+| `ApiError` | — | Any other API error |
+| `NetworkError` | — | Connection failure or timeout |
+
+## Rate limits
+
+The client tracks rate-limit headers from the last response:
+
+```typescript
+await client.payments.list();
+
+const rateLimit = client.getRateLimitInfo();
+
+if (rateLimit && rateLimit.remaining < 10) {
+  console.warn(`Only ${rateLimit.remaining}/${rateLimit.limit} requests left`);
+  console.warn('Resets at', new Date(rateLimit.reset * 1000));
+}
+```
+
+Limits vary per endpoint — see [Rate Limits](/api/v1/rate-limits).
+
+## TypeScript
+
+Request and response shapes are exported, so you can type values before they reach the client:
+
+```typescript
+import {
+  CreatePaymentRequest,
+  PaymentResponse,
+  Currency,
+  PaymentStatus,
+  WebhookPayload,
+} from '@ceypay/sdk';
+
+const request: CreatePaymentRequest = {
+  amount: 100,
+  currency: Currency.USDT,
+  goods: [{ name: 'Product', description: 'Description' }],
+};
+
+const payment: PaymentResponse = await client.payments.create(request);
+
+if (payment.status === PaymentStatus.PAID) {
+  // ...
+}
+```
+
+## Examples
+
+Complete runnable examples live in the [`examples/`](https://github.com/CeyLabs/CeyPay-JS-SDK/tree/main/examples) directory:
+
+| Example | What it covers |
+| --- | --- |
+| `create-payment.ts` | Create a payment with customer billing |
+| `list-payments.ts` | List and filter payments with pagination |
+| `create-payment-link.ts` | Fixed, custom-amount, and single-use links |
+| `update-payment-link.ts` | Update and deactivate links |
+| `webhook-handler.ts` | Express handler with signature verification |
+
+```bash
+npx ts-node examples/create-payment.ts
+```
+
+## Support
+
+<CardGroup cols={3}>
+  <Card title="API Reference" icon="rectangle-terminal" href="/api/v1/quickstart">
+    Full endpoint reference and playground
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/CeyLabs/CeyPay-JS-SDK/issues">
+    Report a bug or request a feature
+  </Card>
+  <Card title="Email Support" icon="headset" href="mailto:support@ceypay.io">
+    support@ceypay.io
+  </Card>
+</CardGroup>
+
+The SDK is MIT licensed.

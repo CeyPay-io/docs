@@ -1,716 +1,97 @@
 ---
-title: "Direct Debit API"
-description: "Create and manage Direct Debit contracts for recurring payments and on-demand charges through CeyPay."
+title: "Direct Debit Guide"
+description: "How Direct Debit contracts work: the signing flow, cross-currency charges, and slippage protection for LKR contracts."
 ---
 
-## Endpoints
+Direct Debit lets a customer authorise you once, then pay on demand without approving each charge. You create a contract, the customer signs it in their wallet, and from then on you charge it whenever you need to — for subscriptions, metered usage, or top-ups.
 
-| Method | Endpoint                              | Description                      | Rate Limit  |
-| ------ | ------------------------------------- | -------------------------------- | ----------- |
-| GET    | `/v1/direct-debit/scenario-code/list` | Get supported scenario codes     | 200 req/min |
-| POST   | `/v1/direct-debit`                    | Create a new contract            | 100 req/min |
-| GET    | `/v1/direct-debit/list`               | List contracts                   | 100 req/min |
-| GET    | `/v1/direct-debit/:id`                | Get contract details             | 100 req/min |
-| POST   | `/v1/direct-debit/:id/sync`           | Query/sync contract status       | 50 req/min  |
-| POST   | `/v1/direct-debit/:id/terminate`      | Terminate a contract             | 50 req/min  |
-| POST   | `/v1/direct-debit/:id/payment`        | Execute payment against contract | 100 req/min |
+For the endpoint reference and a live playground, see [Create contract](/api/v1/reference/create-direct-debit-contract) and the other Direct Debit endpoints in the sidebar.
+
+<Note>
+  Direct Debit is currently live on **Binance Pay** (`BINANCE_PAY`). Bybit and KuCoin scenario codes are reserved but not yet enabled.
+</Note>
 
 ---
 
-## Get Scenario Codes
+## Contract Lifecycle
 
-Retrieves a list of supported scenario codes for direct debit contracts. Use these IDs when creating a contract. Scenarios define the type of service and transaction limits.
+<Steps>
+  <Step title="Look up a scenario code">
+    Call `GET /v1/direct-debit/scenario-code/list` to fetch the scenarios your account can use. A scenario defines the service type and its per-transaction ceiling. Cache the result — it changes rarely.
+  </Step>
+  <Step title="Create the contract">
+    Call `POST /v1/direct-debit` with the scenario, a per-charge limit, and your return and cancel URLs. The response carries a `qrContent` and a `deepLink`.
+  </Step>
+  <Step title="Send the customer to sign">
+    Present the QR code, or redirect to the deep link on mobile. The customer approves the contract in their wallet and lands on your `returnUrl`.
+  </Step>
+  <Step title="Confirm the signature">
+    Wait for the contract webhook, or call `POST /v1/direct-debit/{id}/sync` to pull the latest status from the provider. The contract is chargeable once it reaches `SIGNED`.
+  </Step>
+  <Step title="Charge on demand">
+    Call `POST /v1/direct-debit/{id}/payment` whenever you need to collect. No customer interaction is involved, so the response has no QR code or checkout link.
+  </Step>
+</Steps>
 
-```
-GET /v1/direct-debit/scenario-code/list
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Query Parameters
-
-| Parameter  | Type   | Required | Description                                                          |
-| ---------- | ------ | -------- | -------------------------------------------------------------------- |
-| `provider` | string | No       | Filter by payment provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY` |
-| `active`   | string | No       | Filter by active status (true/false, default: true)                  |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/direct-debit/scenario-code/list?provider=BINANCE_PAY" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "data": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440003",
-      "scenarioId": "12345",
-      "scenarioName": "Subscription Service",
-      "paymentProvider": "BINANCE_PAY",
-      "maxLimit": 1000,
-      "isActive": true
-    }
-  ]
-}
-```
-
-### Error Responses
-
-| Status | Description                              |
-| ------ | ---------------------------------------- |
-| 401    | Unauthorized - invalid HMAC signature    |
-| 429    | Too many requests - rate limit exceeded  |
+To bill on a fixed schedule instead of charging manually, attach a [Subscription](/api/v1/reference/create-subscription) to the signed contract and CeyPay runs the billing cycle for you.
 
 ---
 
-## Create Contract
+## Contract Statuses
 
-Creates a pre-authorization contract that users can sign to enable on-demand payments. Supports multiple payment providers (currently: BINANCE_PAY). Returns QR code and deep link for user approval.
+| Status       | Meaning                                             |
+| ------------ | --------------------------------------------------- |
+| `INITIATED`  | Created, awaiting the customer's signature          |
+| `SIGNED`     | Signed and ready to charge                          |
+| `TERMINATED` | Cancelled by you or the customer                    |
+| `EXPIRED`    | The signing window lapsed before the customer signed |
 
-```
-POST /v1/direct-debit
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Request Body
-
-| Field                  | Type          | Required | Description                                                                                |
-| ---------------------- | ------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `provider`             | string        | Yes      | Payment provider: `BINANCE_PAY`                                                            |
-| `merchantContractCode` | string        | No       | Unique merchant contract code (alphanumeric, max 32 chars). Auto-generated if not provided |
-| `branchId`             | string (UUID) | No       | Branch ID to associate this contract with                                                  |
-| `serviceName`          | string        | Yes      | Service name displayed to user (max 32 chars)                                              |
-| `scenarioId`           | string (UUID) | Yes      | Scenario ID from scenario-code/list endpoint                                               |
-| `currency`             | string        | Yes      | Contract currency: `USDT` (crypto) or `LKR` (fiat)                                        |
-| `singleUpperLimit`     | number        | Yes      | Maximum amount per transaction in the specified currency (min 0.01)                        |
-| `slippageBps`          | number        | No       | Slippage buffer in basis points for LKR contracts (0-20000 bps = 0-200%). Not allowed for USDT. Default: 0. Example: 10000 bps = 100% |
-| `webhookUrl`           | string        | No       | Webhook URL for contract events                                                            |
-| `returnUrl`            | string (URL)  | Yes      | URL to redirect user after successful contract signing (max 512 chars)                     |
-| `cancelUrl`            | string (URL)  | Yes      | URL to redirect user after contract signing cancellation (max 512 chars)                   |
-
-### Example Request (USDT Contract)
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "provider": "BINANCE_PAY",
-    "currency": "USDT",
-    "serviceName": "Monthly Subscription",
-    "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
-    "singleUpperLimit": 100.0,
-    "returnUrl": "https://your-app.com/contract/success",
-    "cancelUrl": "https://your-app.com/contract/cancelled",
-    "webhookUrl": "https://your-app.com/api/contract-webhook"
-  }'
-```
-
-### Example Request (LKR Contract with Slippage)
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "provider": "BINANCE_PAY",
-    "currency": "LKR",
-    "serviceName": "Monthly Subscription",
-    "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
-    "singleUpperLimit": 33000.0,
-    "slippageBps": 10000,
-    "returnUrl": "https://your-app.com/contract/success",
-    "cancelUrl": "https://your-app.com/contract/cancelled",
-    "webhookUrl": "https://your-app.com/api/contract-webhook"
-  }'
-```
-
-### Example Response (USDT Contract)
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "merchantId": "merchant_12345",
-  "merchantContractCode": "DD20260309120530A3F4",
-  "serviceName": "Monthly Subscription",
-  "status": "INITIATED",
-  "currency": "USDT",
-  "singleUpperLimit": 100.0,
-  "paymentProvider": "BINANCE_PAY",
-  "qrContent": "binance://contract?code=...",
-  "deepLink": "https://app.binance.com/contract/sign?code=...",
-  "createdAt": "2026-03-25T10:30:00.000Z"
-}
-```
-
-### Example Response (LKR Contract)
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "merchantId": "merchant_12345",
-  "merchantContractCode": "DD20260309120530B4G5",
-  "serviceName": "Monthly Subscription",
-  "status": "INITIATED",
-  "currency": "LKR",
-  "singleUpperLimit": 200.0,
-  "singleUpperLimitLkr": 33000.0,
-  "slippageBps": 10000,
-  "paymentProvider": "BINANCE_PAY",
-  "qrContent": "binance://contract?code=...",
-  "deepLink": "https://app.binance.com/contract/sign?code=...",
-  "createdAt": "2026-03-25T10:30:00.000Z"
-}
-```
-
-**Note for LKR Contracts:**
-- `singleUpperLimit` shows the USDT amount sent to Binance (after currency conversion + slippage buffer)
-- `singleUpperLimitLkr` shows the original LKR amount specified
-- `slippageBps` shows the slippage buffer applied (10000 bps = 100%)
-- In this example: 33000 LKR ÷ 330 (exchange rate) = 100 USDT, with 100% slippage = 200 USDT total limit
-
-### Error Responses
-
-| Status | Description                                                                                    |
-| ------ | ---------------------------------------------------------------------------------------------- |
-| 400    | Bad request - invalid contract data, slippage not allowed for USDT, or missing exchange rate for LKR |
-| 401    | Unauthorized - invalid HMAC signature     |
-| 403    | Forbidden - merchant not authorized       |
-| 429    | Too many requests - rate limit exceeded   |
+Only `SIGNED` contracts can be charged or terminated.
 
 ---
 
-## List Contracts
+## Currency and Slippage
 
-Retrieves a paginated list of contracts for the authenticated merchant. Supports filtering by status, branch, currency, payment provider, and search.
+A contract is denominated in either `USDT` or `LKR`, but you can charge it in **either** currency regardless of how it was created. Every charge is converted to USDT before it reaches the provider.
 
-```
-GET /v1/direct-debit/list
-```
+### Why LKR contracts need a buffer
 
-### Authentication
+The provider only understands USDT limits. When you create an LKR contract, CeyPay converts your LKR limit to USDT at the current rate and sends that figure to Binance. If the exchange rate moves before you charge, the same LKR amount may now convert to more USDT than the contract allows — and the charge is rejected.
 
-Requires [HMAC authentication](/api/v1/authentication) with headers:
+`slippageBps` inflates the USDT limit sent to the provider to absorb that movement.
 
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
+<Warning>
+  Slippage applies to LKR contracts only. Sending `slippageBps` on a `USDT` contract is rejected with a `400`.
+</Warning>
 
-### Query Parameters
-
-| Parameter         | Type          | Required | Description                                                            |
-| ----------------- | ------------- | -------- | ---------------------------------------------------------------------- |
-| `page`            | number        | No       | Page number (default: 1)                                               |
-| `limit`           | number        | No       | Items per page (default: 20, max: 100)                                 |
-| `status`          | string        | No       | Filter by status: `INITIATED`, `SIGNED`, `TERMINATED`, `EXPIRED`       |
-| `branchId`        | string (UUID) | No       | Filter by branch ID                                                    |
-| `currency`        | string        | No       | Filter by currency: `USDT`, `LKR`                                      |
-| `paymentProvider` | string        | No       | Filter by provider: `BINANCE_PAY`, `BYBIT_PAY`, `KUCOIN_PAY`          |
-| `search`          | string        | No       | Search by merchant contract code or service name                       |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/direct-debit/list?page=1&limit=20&status=SIGNED" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "data": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "merchantContractCode": "DD20260309120530A3F4",
-      "serviceName": "Monthly Subscription",
-      "status": "SIGNED",
-      "currency": "USDT",
-      "singleUpperLimit": 100.0,
-      "paymentProvider": "BINANCE_PAY",
-      "createdAt": "2026-03-25T10:30:00.000Z"
-    }
-  ],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 45,
-    "totalPages": 3
-  }
-}
-```
-
-### Error Responses
-
-| Status | Description                              |
-| ------ | ---------------------------------------- |
-| 401    | Unauthorized - invalid HMAC signature    |
-| 429    | Too many requests - rate limit exceeded  |
-
----
-
-## Get Contract Details
-
-Retrieves contract details by ID. Only returns contracts belonging to the authenticated merchant.
+### Worked example
 
 ```
-GET /v1/direct-debit/:id
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Path Parameters
-
-| Parameter | Type          | Required | Description |
-| --------- | ------------- | -------- | ----------- |
-| `id`      | string (UUID) | Yes      | Contract ID |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "merchantId": "merchant_12345",
-  "branchId": "550e8400-e29b-41d4-a716-446655440002",
-  "paymentProvider": "BINANCE_PAY",
-  "merchantContractCode": "DD20260309120530A3F4",
-  "preContractId": "29383937493038367292",
-  "contractId": 123456789,
-  "bizId": "420471959722147840",
-  "serviceName": "Monthly Subscription",
-  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
-  "currency": "USDT",
-  "singleUpperLimit": 100.0,
-  "periodic": false,
-  "contractEndTime": "2027-03-25T00:00:00.000Z",
-  "requestExpireTime": "2026-03-26T00:00:00.000Z",
-  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
-  "merchantAccountNo": "user@example.com",
-  "status": "SIGNED",
-  "paymentCount": 3,
-  "totalAmountCharged": 150.0,
-  "lastPaymentAt": "2026-03-24T10:30:00.000Z",
-  "webhookUrl": "https://your-app.com/api/contract-webhook",
-  "createdAt": "2026-03-25T10:30:00.000Z",
-  "updatedAt": "2026-03-25T11:00:00.000Z"
-}
-```
-
-### Error Responses
-
-| Status | Description                                        |
-| ------ | -------------------------------------------------- |
-| 401    | Unauthorized - invalid HMAC signature              |
-| 403    | Forbidden - contract does not belong to merchant   |
-| 404    | Contract not found                                 |
-| 429    | Too many requests - rate limit exceeded            |
-
----
-
-## Query/Sync Contract Status
-
-Queries the payment provider for the latest contract status and syncs it to the database. Use this to check if a user has signed the contract.
-
-```
-POST /v1/direct-debit/:id/sync
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Path Parameters
-
-| Parameter | Type          | Required | Description |
-| --------- | ------------- | -------- | ----------- |
-| `id`      | string (UUID) | Yes      | Contract ID |
-
-### Request Body
-
-Empty object `{}`
-
-### Example Request
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000/sync" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{}'
-```
-
-### Example Response
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "merchantId": "merchant_12345",
-  "paymentProvider": "BINANCE_PAY",
-  "merchantContractCode": "DD20260309120530A3F4",
-  "preContractId": "29383937493038367292",
-  "contractId": 123456789,
-  "bizId": "420471959722147840",
-  "serviceName": "Monthly Subscription",
-  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
-  "currency": "USDT",
-  "singleUpperLimit": 100.0,
-  "periodic": false,
-  "contractEndTime": "2027-03-25T00:00:00.000Z",
-  "requestExpireTime": "2026-03-26T00:00:00.000Z",
-  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
-  "merchantAccountNo": "user@example.com",
-  "status": "SIGNED",
-  "paymentCount": 0,
-  "totalAmountCharged": 0,
-  "webhookUrl": "https://your-app.com/api/contract-webhook",
-  "createdAt": "2026-03-25T10:30:00.000Z",
-  "updatedAt": "2026-03-25T11:00:00.000Z"
-}
-```
-
-### Error Responses
-
-| Status | Description                              |
-| ------ | ---------------------------------------- |
-| 401    | Unauthorized - invalid HMAC signature    |
-| 404    | Contract not found                       |
-| 429    | Too many requests - rate limit exceeded  |
-
----
-
-## Terminate Contract
-
-Terminates a signed Direct Debit contract. Only contracts in `SIGNED` status can be terminated.
-
-```
-POST /v1/direct-debit/:id/terminate
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Path Parameters
-
-| Parameter | Type          | Required | Description |
-| --------- | ------------- | -------- | ----------- |
-| `id`      | string (UUID) | Yes      | Contract ID |
-
-### Request Body
-
-| Field              | Type   | Required | Description                                               |
-| ------------------ | ------ | -------- | --------------------------------------------------------- |
-| `terminationNotes` | string | No       | Optional notes about contract termination (max 256 chars) |
-
-### Example Request
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000/terminate" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "terminationNotes": "User requested cancellation"
-  }'
-```
-
-### Example Response
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "merchantId": "merchant_12345",
-  "paymentProvider": "BINANCE_PAY",
-  "merchantContractCode": "DD20260309120530A3F4",
-  "preContractId": "29383937493038367292",
-  "contractId": 123456789,
-  "bizId": "420471959722147840",
-  "serviceName": "Monthly Subscription",
-  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
-  "currency": "USDT",
-  "singleUpperLimit": 100.0,
-  "periodic": false,
-  "contractEndTime": "2027-03-25T00:00:00.000Z",
-  "requestExpireTime": "2026-03-26T00:00:00.000Z",
-  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
-  "merchantAccountNo": "user@example.com",
-  "status": "TERMINATED",
-  "contractTerminationWay": 3,
-  "contractTerminationTime": "2026-03-25T12:00:00.000Z",
-  "terminationNotes": "User requested cancellation",
-  "paymentCount": 5,
-  "totalAmountCharged": 250.0,
-  "lastPaymentAt": "2026-03-24T10:30:00.000Z",
-  "webhookUrl": "https://your-app.com/api/contract-webhook",
-  "createdAt": "2026-03-25T10:30:00.000Z",
-  "updatedAt": "2026-03-25T12:00:00.000Z"
-}
-```
-
-### Error Responses
-
-| Status | Description                                      |
-| ------ | ------------------------------------------------ |
-| 400    | Bad request - contract not in SIGNED status      |
-| 401    | Unauthorized - invalid HMAC signature            |
-| 404    | Contract not found                               |
-| 429    | Too many requests - rate limit exceeded          |
-
----
-
-## Execute Payment
-
-Executes an on-demand payment against a signed Direct Debit contract. Amount must not exceed the contract's single upper limit.
-
-```
-POST /v1/direct-debit/:id/payment
-```
-
-### Authentication
-
-Requires [HMAC authentication](/api/v1/authentication) with headers:
-
-- `x-api-key`: Your API key ID only (e.g., `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature (using derived signing key)
-
-### Path Parameters
-
-| Parameter | Type          | Required | Description |
-| --------- | ------------- | -------- | ----------- |
-| `id`      | string (UUID) | Yes      | Contract ID |
-
-### Request Body
-
-| Field             | Type   | Required | Description                                              |
-| ----------------- | ------ | -------- | -------------------------------------------------------- |
-| `currency`        | string | Yes      | Payment currency: `USDT` or `LKR` (can differ from contract currency) |
-| `amount`          | number | Yes      | Payment amount in the specified currency (min 0.01). Must not exceed contract's buffered limit after conversion |
-| `productName`     | string | Yes      | Product name (max 256 chars)                             |
-| `productDetail`   | string | No       | Product detail (max 256 chars)                           |
-| `goods`           | array  | No       | Array of goods items (see structure below)               |
-| `webhookUrl`      | string | No       | Webhook URL to override contract webhook                 |
-| `customerBilling` | object | No       | Customer billing information (see structure below)       |
-
-#### Goods Item Structure
-
-| Field              | Type   | Required | Description                                        |
-| ------------------ | ------ | -------- | -------------------------------------------------- |
-| `goodsType`        | string | Yes      | Goods type (01: Tangible goods, 02: Virtual goods) |
-| `goodsCategory`    | string | Yes      | Goods category code (e.g., Z000)                   |
-| `referenceGoodsId` | string | Yes      | Reference goods ID                                 |
-| `goodsName`        | string | Yes      | Goods name (max 256 chars)                         |
-| `goodsDetail`      | string | No       | Goods detail description (max 256 chars)           |
-
-#### Customer Billing Structure
-
-| Field       | Type   | Required | Description         |
-| ----------- | ------ | -------- | ------------------- |
-| `firstName` | string | Yes      | Customer first name |
-| `lastName`  | string | Yes      | Customer last name  |
-| `email`     | string | Yes      | Customer email      |
-| `phone`     | string | No       | Customer phone      |
-| `address`   | string | No       | Customer address    |
-
-### Example Request (USDT Payment)
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440000/payment" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "currency": "USDT",
-    "amount": 50.0,
-    "productName": "Monthly Subscription",
-    "productDetail": "Premium membership for March 2026",
-    "customerBilling": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "phone": "+94771234567"
-    },
-    "webhookUrl": "https://your-app.com/api/payment-webhook"
-  }'
-```
-
-### Example Request (LKR Payment)
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/direct-debit/550e8400-e29b-41d4-a716-446655440001/payment" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1705315800000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "currency": "LKR",
-    "amount": 16500.0,
-    "productName": "Monthly Subscription",
-    "productDetail": "Premium membership for March 2026",
-    "customerBilling": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "phone": "+94771234567"
-    },
-    "webhookUrl": "https://your-app.com/api/payment-webhook"
-  }'
-```
-
-### Example Response
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "merchantId": "merchant_12345",
-  "payId": "binance_pay_xyz789",
-  "paymentNo": "320045925617",
-  "amount": 50.0,
-  "currency": "USDT",
-  "status": "INITIATED",
-  "paymentProvider": "BINANCE_PAY",
-  "directDebitContractId": "550e8400-e29b-41d4-a716-446655440000",
-  "createdAt": "2026-03-25T10:30:00.000Z",
-  "feeBreakdown": {
-    "grossAmountUSDT": 50.0,
-    "exchangeFeePercentage": 1.0,
-    "exchangeFeeAmountUSDT": 0.50,
-    "ceypayFeePercentage": 0.5,
-    "ceypayFeeAmountUSDT": 0.25,
-    "totalFeesUSDT": 0.75,
-    "netAmountUSDT": 49.25
-  }
-}
-```
-
-### Response Notes
-
-- Direct debit payments do not include `qrContent` or `checkoutLink` fields as the payment is charged directly without user interaction
-- Payment starts in `INITIATED` status and transitions to `PAID` via webhook notification
-- In sandbox mode, payments are automatically marked as `PAID`
-
-### Error Responses
-
-| Status | Description                                                                                             |
-| ------ | ------------------------------------------------------------------------------------------------------- |
-| 400    | Bad request - contract not signed, expired, amount exceeds limit after currency conversion, or exchange rate unavailable |
-| 401    | Unauthorized - invalid HMAC signature                                                                   |
-| 404    | Contract not found                                                                                      |
-| 429    | Too many requests - rate limit exceeded                                                                 |
-
----
-
-## Currency & Slippage
-
-### Currency Support
-
-Direct Debit contracts support two currencies:
-
-| Currency | Type   | Description                        |
-| -------- | ------ | ---------------------------------- |
-| `USDT`   | Crypto | Tether stablecoin on blockchain    |
-| `LKR`    | Fiat   | Sri Lankan Rupee                   |
-
-### Cross-Currency Payments
-
-You can execute payments in either USDT or LKR regardless of the contract's currency:
-
-- **USDT contract** → Can accept both USDT and LKR payments
-- **LKR contract** → Can accept both LKR and USDT payments
-
-All payments are converted to USDT before being sent to the payment provider.
-
-### Slippage Protection for LKR Contracts
-
-When creating an LKR contract, exchange rates may fluctuate between contract creation and payment execution. Slippage protection adds a buffer to handle these fluctuations.
-
-**Example:**
-```
-Contract: 1000 LKR with 100% slippage (10000 bps)
+Contract:      1000 LKR, slippageBps 10000 (100%)
 Exchange rate: 1 USDT = 330 LKR
 
-Calculation:
-1. Base conversion: 1000 LKR ÷ 330 = 3.03 USDT
-2. Apply slippage: 3.03 USDT × (1 + 100%) = 6.06 USDT
-3. Contract limit sent to Binance: 6.06 USDT
-
-This allows:
-- LKR payments up to ~2000 LKR (if rate stays at 330)
-- USDT payments up to 6.06 USDT
+1. Base conversion:  1000 LKR ÷ 330  = 3.03 USDT
+2. Apply slippage:   3.03 × (1 + 1.0) = 6.06 USDT
+3. Limit sent to provider:             6.06 USDT
 ```
 
-**Slippage in Basis Points:**
-- 0 bps = 0% (no buffer)
-- 5000 bps = 50%
-- 10000 bps = 100%
-- 20000 bps = 200% (maximum)
+That contract then accepts LKR charges up to roughly 2000 LKR while the rate holds at 330, or USDT charges up to 6.06 USDT.
 
-**Important Notes:**
-- Slippage only applies to LKR contracts
-- USDT contracts do not use slippage (rejected if provided)
-- Slippage defaults to 0 if not specified for LKR contracts
-- Maximum allowed slippage is 20000 bps (200%)
+### Choosing a buffer
 
-### Payment Validation
+| Basis points | Buffer | Use when                                      |
+| ------------ | ------ | --------------------------------------------- |
+| `0`          | 0%     | You charge immediately after signing          |
+| `5000`       | 50%    | Charges land within days                      |
+| `10000`      | 100%   | Long-lived contracts, monthly billing         |
+| `20000`      | 200%   | Maximum permitted buffer                      |
 
-When executing a payment:
+The buffer raises the ceiling, not the amount charged. A larger buffer costs you nothing — it only widens the range of charges the contract will accept.
 
-1. **Currency conversion**: Payment amount is converted to USDT using current exchange rate
-2. **Limit validation**: Converted USDT amount must not exceed contract's `singleUpperLimit` (which includes slippage buffer for LKR contracts)
-3. **Error handling**: If payment exceeds limit, request is rejected with clear error message showing the conversion
+### Charge validation
 
-**Example Error Response:**
+Every charge is converted to USDT at the current rate and checked against the contract's buffered limit. Charges over the limit are rejected with a message showing the conversion:
+
 ```json
 {
   "statusCode": 400,
@@ -719,47 +100,31 @@ When executing a payment:
 }
 ```
 
----
-
-## Contract Status Reference
-
-Direct Debit contracts have the following lifecycle statuses:
-
-| Status        | Description                                        |
-| ------------- | -------------------------------------------------- |
-| `INITIATED`   | Contract created but not yet signed by user        |
-| `SIGNED`      | User has signed the contract (ready for payments)  |
-| `TERMINATED`  | Contract has been terminated                       |
-| `EXPIRED`     | Contract has expired                               |
+On a response, `singleUpperLimit` is always the USDT figure sent to the provider. For LKR contracts, `singleUpperLimitLkr` carries the original LKR amount you specified.
 
 ---
 
 ## Webhooks
 
-Set `webhookUrl` in your contract creation request to receive real-time contract and payment status updates.
+Set `webhookUrl` when creating a contract to receive contract and charge events. A `webhookUrl` on an individual charge overrides the contract's for that charge only.
 
-See [Webhooks Guide](/api/v1/webhooks) for payload format, signature verification, and retry policy.
-
----
-
-## Error Responses
-
-| Status | Error             | Description                              |
-| ------ | ----------------- | ---------------------------------------- |
-| 400    | Bad Request       | Invalid request body or validation error |
-| 401    | Unauthorized      | Invalid API key or signature             |
-| 403    | Forbidden         | Contract belongs to another merchant     |
-| 404    | Not Found         | Contract not found                       |
-| 429    | Too Many Requests | Rate limit exceeded                      |
-
-See [Error Codes](/api/v1/errors) for detailed error handling.
+See the [Webhooks Guide](/api/v1/webhooks) for payload formats, signature verification, and the retry schedule.
 
 ---
 
 ## Related Documentation
 
-- [Quick Start](/api/v1/quickstart) - Getting started guide
-- [Authentication](/api/v1/authentication) - HMAC signature details
-- [Webhooks](/api/v1/webhooks) - Receive payment notifications
-- [Rate Limits](/api/v1/rate-limits) - API rate limiting
-- [Errors](/api/v1/errors) - Error codes reference
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/v1/authentication">
+    Sign your API requests
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api/v1/webhooks">
+    Receive contract and payment events
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/v1/rate-limits">
+    Per-endpoint request budgets
+  </Card>
+  <Card title="Errors" icon="circle-exclamation" href="/api/v1/errors">
+    Error codes and handling
+  </Card>
+</CardGroup>

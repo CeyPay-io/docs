@@ -1,0 +1,4984 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CeyPay API",
+    "version": "1.0.0",
+    "description": "Accept crypto payments and settle in Sri Lankan Rupees.\n\nThe CeyPay API is organised around REST. All requests use HTTPS, accept and return JSON, and are authenticated with an HMAC-SHA256 signature. See [Authentication](/api/v1/authentication) for how to sign a request.\n\n## Environments\n\nUse the base-URL selector on any endpoint to switch the examples between environments.\n\n| Environment | Base URL |\n| --- | --- |\n| Production | `https://api.ceypay.io` |\n| Sandbox | `https://sandbox-api.ceypay.io` |\n\nWhich environment serves a request is ultimately determined by **the API key you sign it with**, so a sandbox key stays in the sandbox regardless of the host it is sent to. Sandbox payments are simulated and no real funds move.",
+    "contact": {
+      "name": "CeyPay Support",
+      "email": "support@ceypay.io",
+      "url": "https://ceypay.io"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://www.ceypay.io/legal/terms"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.ceypay.io",
+      "description": "Production"
+    },
+    {
+      "url": "https://sandbox-api.ceypay.io",
+      "description": "Sandbox — integration testing, no real funds move"
+    }
+  ],
+  "security": [
+    {
+      "apiKeyId": [],
+      "timestamp": [],
+      "signature": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Payments",
+      "description": "Create and track one-off crypto payments. Every payment returns a QR code and a checkout link you can present to the customer."
+    },
+    {
+      "name": "Payment Links",
+      "description": "Shareable hosted checkout pages. Use them to collect payment over email, SMS, or social media without building a checkout flow."
+    },
+    {
+      "name": "Direct Debit",
+      "description": "Pre-authorisation contracts that let you charge a customer on demand after they sign once."
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Recurring billing built on top of a signed Direct Debit contract. CeyPay charges the contract automatically on your billing cycle."
+    },
+    {
+      "name": "Branches",
+      "description": "Organise payments, links, and contracts across locations, teams, or — if you operate as an aggregator — across your own customers."
+    },
+    {
+      "name": "Withdrawals",
+      "description": "Request settlement of your unsettled payment balance to your registered bank account."
+    },
+    {
+      "name": "Offramp",
+      "description": "Convert USDT to LKR and settle directly to a Sri Lankan bank account. Available only to merchants with the `AGGREGATOR` role."
+    },
+    {
+      "name": "Banks",
+      "description": "Reference data for Sri Lankan banks and their CEFTS codes."
+    }
+  ],
+  "paths": {
+    "/v1/payment": {
+      "post": {
+        "operationId": "createPayment",
+        "summary": "Create payment",
+        "tags": [
+          "Payments"
+        ],
+        "description": "Creates a payment order and returns a QR code and checkout link for the customer to pay.\n\nWhen `currency` is `LKR`, the amount is converted to USDT at the current exchange rate and the response includes the LKR breakdown.\n\n**Rate limit:** 100 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              },
+              "example": {
+                "amount": 149.99,
+                "currency": "USDT",
+                "provider": "BYBIT",
+                "goods": [
+                  {
+                    "name": "Wireless Headphones",
+                    "description": "Noise-cancelling Bluetooth headphones",
+                    "mccCode": "5732"
+                  }
+                ],
+                "merchantTradeNo": "ORDER-2026-001",
+                "webhookUrl": "https://mystore.com/api/payment-webhook",
+                "customerBilling": {
+                  "email": "customer@example.com",
+                  "firstName": "John",
+                  "lastName": "Doe",
+                  "phone": "+94771234567",
+                  "address": "123 Main Street"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                },
+                "examples": {
+                  "usdt": {
+                    "summary": "USDT payment",
+                    "value": {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "merchantId": "merchant_12345",
+                      "payId": "bybit_pay_abc123",
+                      "paymentNo": "320045925616",
+                      "amount": 149.99,
+                      "currency": "USDT",
+                      "status": "INITIATED",
+                      "qrContent": "bybit://pay?id=abc123...",
+                      "checkoutLink": "https://checkout.bybit.com/pay/abc123",
+                      "goods": [
+                        {
+                          "name": "Wireless Headphones",
+                          "description": "Noise-cancelling Bluetooth headphones",
+                          "mccCode": "5732"
+                        }
+                      ],
+                      "customerBilling": {
+                        "email": "customer@example.com",
+                        "firstName": "John",
+                        "lastName": "Doe"
+                      },
+                      "paymentProvider": "BYBIT",
+                      "expireTime": "2026-01-15T11:30:00.000Z",
+                      "createdAt": "2026-01-15T10:30:00.000Z",
+                      "feeBreakdown": {
+                        "grossAmountUSDT": 149.99,
+                        "exchangeFeePercentage": 1,
+                        "exchangeFeeAmountUSDT": 1.5,
+                        "ceypayFeePercentage": 0.5,
+                        "ceypayFeeAmountUSDT": 0.75,
+                        "totalFeesUSDT": 2.25,
+                        "netAmountUSDT": 147.74
+                      }
+                    }
+                  },
+                  "lkr": {
+                    "summary": "LKR payment (converted to USDT)",
+                    "value": {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "amount": 101.52,
+                      "currency": "USDT",
+                      "status": "INITIATED",
+                      "usdtAmount": 101.52,
+                      "exchangeRateSnapshot": 295.5,
+                      "lkrGrossAmount": 30000,
+                      "lkrExchangeFeeAmount": 750,
+                      "lkrCeypayFeeAmount": 300,
+                      "lkrNetAmount": 28950,
+                      "feeBreakdown": {
+                        "grossAmountUSDT": 101.52,
+                        "grossAmountLKR": 30000,
+                        "exchangeFeePercentage": 2.5,
+                        "exchangeFeeAmountUSDT": 2.54,
+                        "exchangeFeeAmountLKR": 750,
+                        "ceypayFeePercentage": 1,
+                        "ceypayFeeAmountUSDT": 1.02,
+                        "ceypayFeeAmountLKR": 300,
+                        "totalFeesUSDT": 3.56,
+                        "totalFeesLKR": 1050,
+                        "netAmountUSDT": 97.96,
+                        "netAmountLKR": 28950
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-payment"
+        }
+      }
+    },
+    "/v1/payment/list": {
+      "get": {
+        "operationId": "listPayments",
+        "summary": "List payments",
+        "tags": [
+          "Payments"
+        ],
+        "description": "Returns a paginated list of your payments, newest first.\n\n**Rate limit:** 200 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Items per page.",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by payment status.",
+            "schema": {
+              "$ref": "#/components/schemas/PaymentStatus"
+            }
+          },
+          {
+            "name": "dateRange",
+            "in": "query",
+            "description": "Date range preset.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "last7",
+                "last30",
+                "last90",
+                "custom"
+              ]
+            }
+          },
+          {
+            "name": "branchId",
+            "in": "query",
+            "description": "Filter to a single branch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search by payment ID or customer details.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Fetch specific payments by ID. Accepts comma-separated values (`ids=id1,id2`) or repeated params (`ids[]=id1&ids[]=id2`). Maximum 50 IDs.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "maxItems": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated payments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Payment"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "amount": 149.99,
+                      "currency": "USDT",
+                      "status": "PAID",
+                      "createdAt": "2026-01-15T10:30:00.000Z",
+                      "paidAt": "2026-01-15T10:35:00.000Z"
+                    }
+                  ],
+                  "meta": {
+                    "page": 1,
+                    "pageSize": 20,
+                    "totalItems": 150,
+                    "totalPages": 8
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-payments"
+        }
+      }
+    },
+    "/v1/payment/{id}": {
+      "get": {
+        "operationId": "getPayment",
+        "summary": "Get payment",
+        "tags": [
+          "Payments"
+        ],
+        "description": "Retrieves a single payment. Only returns payments belonging to your merchant account.\n\n**Rate limit:** 300 requests/minute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Payment ID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-payment"
+        }
+      }
+    },
+    "/v1/payment-link": {
+      "post": {
+        "operationId": "createPaymentLink",
+        "summary": "Create payment link",
+        "tags": [
+          "Payment Links"
+        ],
+        "description": "Creates a hosted checkout link you can share with customers.\n\n**Rate limit:** 50 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentLinkRequest"
+              },
+              "example": {
+                "merchantTradeNo": "ORDER-2026-001",
+                "name": "Premium Subscription",
+                "description": "Monthly premium plan subscription",
+                "amount": 49.99,
+                "currency": "USDT",
+                "reusable": false,
+                "allowCustomAmount": false,
+                "allowQuantityBuy": true,
+                "maxQuantity": 10,
+                "successUrl": "https://yourstore.com/payment/success",
+                "cancelUrl": "https://yourstore.com/payment/cancelled",
+                "webhookUrl": "https://yourstore.com/webhooks/ceypay"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment link created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentLink"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440000",
+                  "merchant_id": "merchant_12345",
+                  "slug": "link_abc123xyz",
+                  "merchantTradeNo": "ORDER-2026-001",
+                  "name": "Premium Subscription",
+                  "description": "Monthly premium plan subscription",
+                  "amount": 49.99,
+                  "currency": "USDT",
+                  "allowCustomAmount": false,
+                  "allowQuantityBuy": true,
+                  "maxQuantity": 10,
+                  "reusable": false,
+                  "successUrl": "https://yourstore.com/payment/success",
+                  "cancelUrl": "https://yourstore.com/payment/cancelled",
+                  "webhookUrl": "https://yourstore.com/webhooks/ceypay",
+                  "used_count": 0,
+                  "status": "ACTIVE",
+                  "creator_type": "API_KEY",
+                  "creator_id": "ak_live_abc123",
+                  "created_at": "2026-01-15T10:30:00Z",
+                  "updated_at": "2026-01-15T10:30:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-payment-link"
+        }
+      }
+    },
+    "/v1/payment-link/list": {
+      "get": {
+        "operationId": "listPaymentLinks",
+        "summary": "List payment links",
+        "tags": [
+          "Payment Links"
+        ],
+        "description": "Returns a paginated list of your payment links.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Items per page.",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "branchId",
+            "in": "query",
+            "description": "Filter to a single branch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search by name or description.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated payment links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PaymentLink"
+                      }
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "totalPages": {
+                      "type": "integer"
+                    },
+                    "hasNext": {
+                      "type": "boolean"
+                    },
+                    "hasPrev": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "name": "Premium Subscription",
+                      "amount": 49.99,
+                      "currency": "USDT",
+                      "status": "ACTIVE"
+                    }
+                  ],
+                  "page": 1,
+                  "limit": 20,
+                  "total": 45,
+                  "totalPages": 3,
+                  "hasNext": true,
+                  "hasPrev": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-payment-links"
+        }
+      }
+    },
+    "/v1/payment-link/{id}": {
+      "get": {
+        "operationId": "getPaymentLink",
+        "summary": "Get payment link",
+        "tags": [
+          "Payment Links"
+        ],
+        "description": "Retrieves a single payment link.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Payment link ID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-payment-link"
+        }
+      },
+      "delete": {
+        "operationId": "deactivatePaymentLink",
+        "summary": "Deactivate payment link",
+        "tags": [
+          "Payment Links"
+        ],
+        "description": "Deactivates a payment link. This is a soft delete — the link stops accepting new payments but its history is preserved.\n\n**Rate limit:** 50 requests/minute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Payment link ID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment link deactivated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "message": "Payment link deactivated successfully"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/deactivate-payment-link"
+        }
+      }
+    },
+    "/v1/direct-debit/scenario-code/list": {
+      "get": {
+        "operationId": "listScenarioCodes",
+        "summary": "List scenario codes",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Returns the scenario codes supported for Direct Debit contracts. A scenario defines the type of service and its transaction limits — pass the returned `id` as `scenarioId` when creating a contract.\n\n**Rate limit:** 200 requests/minute.",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "Filter by payment provider.",
+            "schema": {
+              "$ref": "#/components/schemas/DirectDebitProvider"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "description": "Filter by active status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ],
+              "default": "true"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scenario codes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ScenarioCode"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440003",
+                      "scenarioId": "12345",
+                      "scenarioName": "Subscription Service",
+                      "paymentProvider": "BINANCE_PAY",
+                      "maxLimit": 1000,
+                      "isActive": true
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-scenario-codes"
+        }
+      }
+    },
+    "/v1/direct-debit": {
+      "post": {
+        "operationId": "createDirectDebitContract",
+        "summary": "Create contract",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Creates a pre-authorisation contract for the customer to sign. Returns a QR code and deep link for approval.\n\nFor `LKR` contracts, set `slippageBps` to absorb exchange-rate movement between signing and charging. Slippage is rejected on `USDT` contracts.\n\n**Rate limit:** 100 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDirectDebitRequest"
+              },
+              "examples": {
+                "usdt": {
+                  "summary": "USDT contract",
+                  "value": {
+                    "provider": "BINANCE_PAY",
+                    "currency": "USDT",
+                    "serviceName": "Monthly Subscription",
+                    "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+                    "singleUpperLimit": 100,
+                    "returnUrl": "https://your-app.com/contract/success",
+                    "cancelUrl": "https://your-app.com/contract/cancelled",
+                    "webhookUrl": "https://your-app.com/api/contract-webhook"
+                  }
+                },
+                "lkr": {
+                  "summary": "LKR contract with 100% slippage buffer",
+                  "value": {
+                    "provider": "BINANCE_PAY",
+                    "currency": "LKR",
+                    "serviceName": "Monthly Subscription",
+                    "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+                    "singleUpperLimit": 33000,
+                    "slippageBps": 10000,
+                    "returnUrl": "https://your-app.com/contract/success",
+                    "cancelUrl": "https://your-app.com/contract/cancelled",
+                    "webhookUrl": "https://your-app.com/api/contract-webhook"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Contract created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectDebitContract"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440000",
+                  "merchantId": "merchant_12345",
+                  "merchantContractCode": "DD20260309120530A3F4",
+                  "serviceName": "Monthly Subscription",
+                  "status": "INITIATED",
+                  "currency": "USDT",
+                  "singleUpperLimit": 100,
+                  "paymentProvider": "BINANCE_PAY",
+                  "qrContent": "binance://contract?code=...",
+                  "deepLink": "https://app.binance.com/contract/sign?code=...",
+                  "createdAt": "2026-03-25T10:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-direct-debit-contract"
+        }
+      }
+    },
+    "/v1/direct-debit/list": {
+      "get": {
+        "operationId": "listDirectDebitContracts",
+        "summary": "List contracts",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Returns a paginated list of Direct Debit contracts for your merchant account.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by contract status.",
+            "schema": {
+              "$ref": "#/components/schemas/DirectDebitStatus"
+            }
+          },
+          {
+            "name": "branchId",
+            "in": "query",
+            "description": "Filter to a single branch.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "currency",
+            "in": "query",
+            "description": "Filter by contract currency.",
+            "schema": {
+              "$ref": "#/components/schemas/Currency"
+            }
+          },
+          {
+            "name": "paymentProvider",
+            "in": "query",
+            "description": "Filter by payment provider.",
+            "schema": {
+              "$ref": "#/components/schemas/DirectDebitProvider"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search by merchant contract code or service name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated contracts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DirectDebitContract"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-direct-debit-contracts"
+        }
+      }
+    },
+    "/v1/direct-debit/{id}": {
+      "get": {
+        "operationId": "getDirectDebitContract",
+        "summary": "Get contract",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Retrieves a single Direct Debit contract.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContractId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contract",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectDebitContract"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440000",
+                  "merchantId": "merchant_12345",
+                  "branchId": "550e8400-e29b-41d4-a716-446655440002",
+                  "paymentProvider": "BINANCE_PAY",
+                  "merchantContractCode": "DD20260309120530A3F4",
+                  "preContractId": "29383937493038367292",
+                  "contractId": 123456789,
+                  "bizId": "420471959722147840",
+                  "serviceName": "Monthly Subscription",
+                  "scenarioId": "550e8400-e29b-41d4-a716-446655440003",
+                  "currency": "USDT",
+                  "singleUpperLimit": 100,
+                  "periodic": false,
+                  "contractEndTime": "2027-03-25T00:00:00.000Z",
+                  "requestExpireTime": "2026-03-26T00:00:00.000Z",
+                  "openUserId": "eb6b287a44dd73dd81645a3cbcfee162",
+                  "merchantAccountNo": "user@example.com",
+                  "status": "SIGNED",
+                  "paymentCount": 3,
+                  "totalAmountCharged": 150,
+                  "lastPaymentAt": "2026-03-24T10:30:00.000Z",
+                  "webhookUrl": "https://your-app.com/api/contract-webhook",
+                  "createdAt": "2026-03-25T10:30:00.000Z",
+                  "updatedAt": "2026-03-25T11:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-direct-debit-contract"
+        }
+      }
+    },
+    "/v1/direct-debit/{id}/sync": {
+      "post": {
+        "operationId": "syncDirectDebitContract",
+        "summary": "Sync contract status",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Queries the payment provider for the contract's latest status and persists it. Use this to check whether the customer has signed.\n\n**Rate limit:** 50 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContractId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract with refreshed status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectDebitContract"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/sync-direct-debit-contract"
+        }
+      }
+    },
+    "/v1/direct-debit/{id}/terminate": {
+      "post": {
+        "operationId": "terminateDirectDebitContract",
+        "summary": "Terminate contract",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Terminates a signed contract. Only contracts in `SIGNED` status can be terminated.\n\n**Rate limit:** 50 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContractId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "terminationNotes": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "description": "Optional note recorded against the termination."
+                  }
+                }
+              },
+              "example": {
+                "terminationNotes": "User requested cancellation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contract terminated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectDebitContract"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/terminate-direct-debit-contract"
+        }
+      }
+    },
+    "/v1/direct-debit/{id}/payment": {
+      "post": {
+        "operationId": "chargeDirectDebitContract",
+        "summary": "Charge contract",
+        "tags": [
+          "Direct Debit"
+        ],
+        "description": "Charges a signed contract on demand. No customer interaction is required, so the response contains no QR code or checkout link.\n\nThe amount is converted to USDT and must not exceed the contract's `singleUpperLimit` after conversion. You may charge in a different currency than the contract's.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ContractId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChargeContractRequest"
+              },
+              "example": {
+                "currency": "USDT",
+                "amount": 50,
+                "productName": "Monthly Subscription",
+                "productDetail": "Premium membership for March 2026",
+                "customerBilling": {
+                  "firstName": "John",
+                  "lastName": "Doe",
+                  "email": "john@example.com",
+                  "phone": "+94771234567"
+                },
+                "webhookUrl": "https://your-app.com/api/payment-webhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440001",
+                  "merchantId": "merchant_12345",
+                  "payId": "binance_pay_xyz789",
+                  "paymentNo": "320045925617",
+                  "amount": 50,
+                  "currency": "USDT",
+                  "status": "INITIATED",
+                  "paymentProvider": "BINANCE_PAY",
+                  "directDebitContractId": "550e8400-e29b-41d4-a716-446655440000",
+                  "createdAt": "2026-03-25T10:30:00.000Z",
+                  "feeBreakdown": {
+                    "grossAmountUSDT": 50,
+                    "exchangeFeePercentage": 1,
+                    "exchangeFeeAmountUSDT": 0.5,
+                    "ceypayFeePercentage": 0.5,
+                    "ceypayFeeAmountUSDT": 0.25,
+                    "totalFeesUSDT": 0.75,
+                    "netAmountUSDT": 49.25
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Contract not signed or expired, amount exceeds the contract limit after conversion, or no exchange rate available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": "Payment 5000 LKR converts to 15.15 USDT, exceeding contract limit 6.06 USDT.",
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/charge-direct-debit-contract"
+        }
+      }
+    },
+    "/v1/subscription": {
+      "post": {
+        "operationId": "createSubscription",
+        "summary": "Create subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Creates a recurring billing schedule against a signed Direct Debit contract. CeyPay charges the contract automatically each cycle and retries failed charges according to your retry settings.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionRequest"
+              },
+              "example": {
+                "contractId": "efb69c23-12b0-4983-8fa5-44645a2965fb",
+                "name": "Pro Plan",
+                "description": "Monthly Pro tier",
+                "billingCycle": "MONTHLY",
+                "billingCycleInterval": 1,
+                "amount": 49.99,
+                "currency": "USDT",
+                "productName": "Pro Plan Subscription",
+                "productDetail": "Includes premium features",
+                "startDate": "2026-03-01T00:00:00Z",
+                "endDate": "2027-06-01T00:00:00Z",
+                "timezone": "Asia/Colombo",
+                "maxCycles": 12,
+                "spendingCap": 500,
+                "maxRetryAttempts": 3,
+                "retryIntervalHours": 24,
+                "gracePeriodDays": 3,
+                "webhookUrl": "https://merchant.example.com/webhooks/subscription",
+                "metadata": {
+                  "planTier": "pro"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-subscription"
+        }
+      }
+    },
+    "/v1/subscription/list": {
+      "get": {
+        "operationId": "listSubscriptions",
+        "summary": "List subscriptions",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Returns a paginated list of subscriptions for your merchant account.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by subscription status.",
+            "schema": {
+              "$ref": "#/components/schemas/SubscriptionStatus"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated subscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subscription"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-subscriptions"
+        }
+      }
+    },
+    "/v1/subscription/{id}": {
+      "get": {
+        "operationId": "getSubscription",
+        "summary": "Get subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Retrieves a single subscription.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubscriptionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-subscription"
+        }
+      }
+    },
+    "/v1/subscription/{id}/pause": {
+      "post": {
+        "operationId": "pauseSubscription",
+        "summary": "Pause subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Pauses billing. No charges are attempted while a subscription is paused; the schedule resumes from the next cycle after you call resume.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubscriptionId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "Why the subscription is being paused."
+                  }
+                }
+              },
+              "example": {
+                "reason": "Customer requested temporary hold"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/pause-subscription"
+        }
+      }
+    },
+    "/v1/subscription/{id}/resume": {
+      "post": {
+        "operationId": "resumeSubscription",
+        "summary": "Resume subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Resumes a paused subscription. Billing continues from the next scheduled cycle.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubscriptionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription resumed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/resume-subscription"
+        }
+      }
+    },
+    "/v1/subscription/{id}/cancel": {
+      "post": {
+        "operationId": "cancelSubscription",
+        "summary": "Cancel subscription",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Cancels a subscription permanently. Cancelled subscriptions cannot be resumed — create a new subscription instead.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubscriptionId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "Why the subscription is being cancelled."
+                  }
+                }
+              },
+              "example": {
+                "reason": "Customer churn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/cancel-subscription"
+        }
+      }
+    },
+    "/v1/subscription/{id}/payments": {
+      "get": {
+        "operationId": "listSubscriptionPayments",
+        "summary": "List subscription payments",
+        "tags": [
+          "Subscriptions"
+        ],
+        "description": "Returns the billing history for a subscription — one entry per charge attempt, including retries.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SubscriptionId"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated payment history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Payment"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-subscription-payments"
+        }
+      }
+    },
+    "/v1/branch": {
+      "post": {
+        "operationId": "createBranch",
+        "summary": "Create branch",
+        "tags": [
+          "Branches"
+        ],
+        "description": "Creates a branch under your merchant account. Branches created via the API always settle to the merchant's bank account.\n\n**Rate limit:** 60 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBranchRequest"
+              },
+              "example": {
+                "name": "Colombo Main Branch",
+                "code": "COL-MAIN",
+                "address": "123 Galle Road",
+                "city": "Colombo",
+                "postalCode": "00300",
+                "phone": "+94112345678",
+                "telegramGroupId": "-1001234567890"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Branch created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440010",
+                  "merchantId": "merchant_12345",
+                  "name": "Colombo Main Branch",
+                  "code": "COL-MAIN",
+                  "address": "123 Galle Road",
+                  "city": "Colombo",
+                  "postalCode": "00300",
+                  "phone": "+94112345678",
+                  "telegramGroupId": "-1001234567890",
+                  "isActive": true,
+                  "usesMerchantBankAccount": true,
+                  "createdAt": "2026-04-17T10:30:00.000Z",
+                  "updatedAt": "2026-04-17T10:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-branch"
+        }
+      }
+    },
+    "/v1/branch/list": {
+      "get": {
+        "operationId": "listBranches",
+        "summary": "List branches",
+        "tags": [
+          "Branches"
+        ],
+        "description": "Returns a paginated list of branches for your merchant account.\n\n**Rate limit:** 200 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search by branch name or code.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "description": "Filter by active status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Field to sort by.",
+            "schema": {
+              "type": "string",
+              "default": "created_at"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated branches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Branch"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-branches"
+        }
+      }
+    },
+    "/v1/branch/{id}": {
+      "get": {
+        "operationId": "getBranch",
+        "summary": "Get branch",
+        "tags": [
+          "Branches"
+        ],
+        "description": "Retrieves a single branch.\n\n**Rate limit:** 300 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BranchId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Branch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-branch"
+        }
+      },
+      "patch": {
+        "operationId": "updateBranch",
+        "summary": "Update branch",
+        "tags": [
+          "Branches"
+        ],
+        "description": "Updates a branch. Send only the fields you want to change.\n\n**Rate limit:** 60 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BranchId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBranchRequest"
+              },
+              "example": {
+                "phone": "+94117654321",
+                "telegramGroupId": "-1009876543210"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Branch updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/update-branch"
+        }
+      },
+      "delete": {
+        "operationId": "deactivateBranch",
+        "summary": "Deactivate branch",
+        "tags": [
+          "Branches"
+        ],
+        "description": "Deactivates a branch. This is a soft delete — the branch and its payment history are preserved and remain reportable by `branchId`.\n\n**Rate limit:** 30 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/BranchId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Branch deactivated. No response body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/deactivate-branch"
+        }
+      }
+    },
+    "/v1/withdrawal": {
+      "post": {
+        "operationId": "createWithdrawal",
+        "summary": "Create withdrawal request",
+        "tags": [
+          "Withdrawals"
+        ],
+        "description": "Bundles all currently unsettled `PAID` payments into a settlement request and submits it for payout.\n\nOnly one active (`PENDING` or `APPROVED`) request is allowed per merchant per day. If the net amount is below the platform's auto-approval threshold the request is approved immediately and the transfer starts; otherwise it stays `PENDING` until a CeyPay admin reviews it.\n\nRequests created via the API record the `apiKeyId` that made them — `requestedBy` will be `null` and `requesterName` will be `\"API\"`.\n\n**Rate limit:** 10 requests/minute.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "branchId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Restrict the request to unsettled payments for this branch. Omit to include all merchant-level unsettled payments."
+                  }
+                }
+              },
+              "example": {
+                "branchId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Withdrawal request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WithdrawalRequest"
+                },
+                "example": {
+                  "id": "770e8400-e29b-41d4-a716-446655440000",
+                  "bankRefId": "CPAY0042260615",
+                  "merchantId": "550e8400-e29b-41d4-a716-446655440001",
+                  "merchantName": "Acme Corp",
+                  "branchId": "550e8400-e29b-41d4-a716-446655440000",
+                  "settlementDate": "2026-06-15",
+                  "requestedBy": null,
+                  "requesterName": "API",
+                  "apiKeyId": "990e8400-e29b-41d4-a716-446655440099",
+                  "requestedAt": "2026-06-15T10:00:00.000Z",
+                  "status": "PENDING",
+                  "totalPaymentsCount": 12,
+                  "totalNetAmountLkr": 450000.5,
+                  "totalNetAmountUsdt": 1500,
+                  "totalGrossAmountLkr": 465000,
+                  "totalGrossAmountUsdt": 1550,
+                  "totalFeesLkr": 15000,
+                  "totalFeesUsdt": 50,
+                  "createdAt": "2026-06-15T10:00:00.000Z",
+                  "updatedAt": "2026-06-15T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No unsettled payments, amount below the minimum withdrawal threshold, or a request already exists for today.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Merchant account is inactive or not approved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-withdrawal"
+        }
+      }
+    },
+    "/v1/withdrawal/list": {
+      "get": {
+        "operationId": "listWithdrawals",
+        "summary": "List withdrawal requests",
+        "tags": [
+          "Withdrawals"
+        ],
+        "description": "Returns a paginated list of withdrawal requests together with summary totals for the filtered set.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Items per page.",
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "CANCELLED"
+              ],
+              "default": "ALL"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Inclusive settlement-date lower bound (ISO 8601).",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "Inclusive settlement-date upper bound (ISO 8601).",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Field to sort by.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "settlement_date",
+                "created_at",
+                "total_gross_amount_lkr",
+                "status"
+              ],
+              "default": "settlement_date"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated withdrawal requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    },
+                    "summary": {
+                      "$ref": "#/components/schemas/WithdrawalSummary"
+                    },
+                    "withdrawalRequests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WithdrawalRequest"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-withdrawals"
+        }
+      }
+    },
+    "/v1/withdrawal/{id}": {
+      "get": {
+        "operationId": "getWithdrawal",
+        "summary": "Get withdrawal request",
+        "tags": [
+          "Withdrawals"
+        ],
+        "description": "Retrieves a withdrawal request including the individual payments it settles.\n\n**Rate limit:** 100 requests/minute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Withdrawal request ID.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Withdrawal request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/WithdrawalRequest"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "reviewedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "reviewedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "merchantSettlementId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "payments": {
+                          "type": "array",
+                          "description": "Payments settled by this request.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "payId": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "$ref": "#/components/schemas/PaymentStatus"
+                              },
+                              "usdtNetAmount": {
+                                "type": "number"
+                              },
+                              "lkrNetAmount": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-withdrawal"
+        }
+      }
+    },
+    "/v1/bank/list": {
+      "get": {
+        "operationId": "listBanks",
+        "summary": "List banks",
+        "tags": [
+          "Banks"
+        ],
+        "description": "Returns all active Sri Lankan banks and their CEFTS codes. This is static reference data — cache it and reuse the result.\n\n**Rate limit:** 300 requests/minute.",
+        "responses": {
+          "200": {
+            "description": "Supported banks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Bank"
+                  }
+                },
+                "example": [
+                  {
+                    "code": 7056,
+                    "name": "Commercial Bank PLC"
+                  },
+                  {
+                    "code": 7083,
+                    "name": "Bank of Ceylon"
+                  },
+                  {
+                    "code": 7010,
+                    "name": "People's Bank"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-banks"
+        }
+      }
+    },
+    "/v1/aggregator/user": {
+      "post": {
+        "operationId": "createAggregatorUser",
+        "summary": "Create or retrieve end-user",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Upserts an end-user keyed by your own user ID. Safe to call before every offramp — if the user already exists the existing record is returned.\n\nCeyPay stores only the `externalUserId` you provide. No personal or identifying information about your end-users is collected.\n\n**Rate limit:** 120 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "externalUserId"
+                ],
+                "properties": {
+                  "externalUserId": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "description": "The user's ID in your system."
+                  }
+                }
+              },
+              "example": {
+                "externalUserId": "usr_1234567890"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "End-user created or retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregatorUser"
+                },
+                "example": {
+                  "userId": "550e8400-e29b-41d4-a716-446655440000",
+                  "externalUserId": "usr_1234567890",
+                  "createdAt": "2026-05-28T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-aggregator-user"
+        }
+      }
+    },
+    "/v1/aggregator/user/{id}/bank-account": {
+      "post": {
+        "operationId": "addAggregatorUserBankAccount",
+        "summary": "Add bank account",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Registers a Sri Lankan bank account for an end-user and returns a reusable `userBankId`. An end-user may have several bank accounts, each with its own ID.\n\n**Rate limit:** 60 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AggregatorUserId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddBankAccountRequest"
+              },
+              "example": {
+                "bankCode": 7056,
+                "accountNumber": "1234567890",
+                "accountName": "John Doe",
+                "beneficiaryMobile": "+94771234567",
+                "beneficiaryEmail": "john.doe@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Bank account registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregatorUserBankAccount"
+                },
+                "example": {
+                  "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
+                  "bankCode": 7056,
+                  "bankName": "Commercial Bank PLC",
+                  "accountNumber": "1234567890",
+                  "accountName": "John Doe",
+                  "beneficiaryMobile": "+94771234567",
+                  "beneficiaryEmail": "john.doe@example.com",
+                  "createdAt": "2026-05-28T10:01:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/add-aggregator-user-bank-account"
+        }
+      }
+    },
+    "/v1/aggregator/user/{id}/bank-account/list": {
+      "get": {
+        "operationId": "listAggregatorUserBankAccounts",
+        "summary": "List bank accounts",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Returns every bank account registered for an end-user.\n\n**Rate limit:** 200 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AggregatorUserId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registered bank accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AggregatorUserBankAccount"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/list-aggregator-user-bank-accounts"
+        }
+      }
+    },
+    "/v1/aggregator/quote": {
+      "get": {
+        "operationId": "getOfframpQuote",
+        "summary": "Get FX quote",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Fetches the current USDT/LKR rate and locks it for 60 seconds. Pass the returned `fxLockId` to `POST /v1/aggregator/offramp` before `expiresAt` — expired and already-used locks are rejected.\n\n**Rate limit:** 120 requests/minute.",
+        "parameters": [
+          {
+            "name": "amount_usdt",
+            "in": "query",
+            "required": true,
+            "description": "USDT amount to convert.",
+            "schema": {
+              "type": "number",
+              "minimum": 1e-8,
+              "maximum": 1000000
+            },
+            "example": 1000
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Locked quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FxQuote"
+                },
+                "example": {
+                  "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
+                  "rateUsdtLkr": 295.5,
+                  "amountUsdt": 1000,
+                  "amountLkr": 295500,
+                  "expiresAt": "2026-05-28T10:01:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-offramp-quote"
+        }
+      }
+    },
+    "/v1/aggregator/offramp": {
+      "post": {
+        "operationId": "createOfframp",
+        "summary": "Create offramp",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Initiates a USDT → LKR bank transfer against a locked FX rate.\n\nThis endpoint is idempotent on `externalRef`. Resubmitting the same key — after a network timeout, for example — returns the original offramp unchanged rather than creating a duplicate transfer.\n\n**Rate limit:** 60 requests/minute.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOfframpRequest"
+              },
+              "example": {
+                "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
+                "userId": "550e8400-e29b-41d4-a716-446655440000",
+                "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
+                "externalRef": "withdrawal-9876543",
+                "webhookUrl": "https://api.yourplatform.com/ceypay/webhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Offramp created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Offramp"
+                },
+                "example": {
+                  "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+                  "status": "PENDING",
+                  "amountUsdt": 1000,
+                  "amountLkr": 295500,
+                  "rateUsdtLkr": 295.5,
+                  "externalRef": "withdrawal-9876543",
+                  "bankRef": null,
+                  "completedAt": null,
+                  "failedAt": null,
+                  "createdAt": "2026-05-28T10:00:45.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error, expired FX quote, or already-used `fxLockId`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/create-offramp"
+        }
+      }
+    },
+    "/v1/aggregator/offramp/{id}": {
+      "get": {
+        "operationId": "getOfframp",
+        "summary": "Get offramp",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Retrieves the current status of an offramp. Poll this, or supply a `webhookUrl` when creating the offramp to be notified instead.\n\n**Rate limit:** 300 requests/minute.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Offramp `paymentId`.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offramp",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Offramp"
+                },
+                "example": {
+                  "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+                  "status": "COMPLETED",
+                  "amountUsdt": 1000,
+                  "amountLkr": 295500,
+                  "rateUsdtLkr": 295.5,
+                  "externalRef": "withdrawal-9876543",
+                  "bankRef": "BOC-TX-123456",
+                  "completedAt": "2026-05-28T10:05:00.000Z",
+                  "failedAt": null,
+                  "createdAt": "2026-05-28T10:00:45.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-offramp"
+        }
+      }
+    },
+    "/v1/aggregator/report/ledger": {
+      "get": {
+        "operationId": "getLedgerReport",
+        "summary": "Float balance ledger report",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Returns every LKR movement on your float — top-ups, offramp debits, and refunds — with period summary statistics for reconciliation.\n\n**Rate limit:** 60 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/ReportLimit"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by ledger entry type.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREDIT",
+                "DEBIT",
+                "REFUND"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/StartDate"
+          },
+          {
+            "$ref": "#/components/parameters/EndDate"
+          },
+          {
+            "$ref": "#/components/parameters/SortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ledger report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    },
+                    "summary": {
+                      "$ref": "#/components/schemas/LedgerSummary"
+                    },
+                    "ledger": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LedgerEntry"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "pagination": {
+                    "currentPage": 1,
+                    "totalPages": 1,
+                    "totalCount": 13,
+                    "limit": 50,
+                    "hasNext": false,
+                    "hasPrev": false
+                  },
+                  "summary": {
+                    "currentBalanceLkr": 500000,
+                    "totalCreditsLkr": 750000,
+                    "totalDebitsLkr": 295500,
+                    "totalRefundsLkr": 0,
+                    "netMovementLkr": 454500,
+                    "creditCount": 3,
+                    "debitCount": 10,
+                    "refundCount": 0,
+                    "openingBalanceLkr": 45500,
+                    "closingBalanceLkr": 500000
+                  },
+                  "ledger": [
+                    {
+                      "id": "d4e5f6a7-b8c9-4d0e-1f2a-334455667788",
+                      "type": "DEBIT",
+                      "amountLkr": 295500,
+                      "balanceAfter": 500000,
+                      "aggregatorOfframpId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+                      "bankRef": null,
+                      "notes": null,
+                      "createdAt": "2026-05-28T10:00:45.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-ledger-report"
+        }
+      }
+    },
+    "/v1/aggregator/report/offramp": {
+      "get": {
+        "operationId": "getOfframpReport",
+        "summary": "Offramp transaction report",
+        "tags": [
+          "Offramp"
+        ],
+        "description": "Returns a paginated list of offramps with per-status totals and a weighted average FX rate. Each row carries the end-user ID and destination bank details so the export is self-contained.\n\nThe `summary` block always covers the full date window regardless of the `status` filter, so per-status breakdowns stay visible even when the item list is filtered.\n\n**Rate limit:** 60 requests/minute.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/ReportLimit"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter items by offramp status.",
+            "schema": {
+              "$ref": "#/components/schemas/OfframpStatus"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/StartDate"
+          },
+          {
+            "$ref": "#/components/parameters/EndDate"
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Field to sort by.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "completed_at",
+                "amount_lkr"
+              ],
+              "default": "created_at"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SortOrder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offramp report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    },
+                    "summary": {
+                      "$ref": "#/components/schemas/OfframpReportSummary"
+                    },
+                    "offramps": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OfframpReportItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/AggregatorForbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "x-mint": {
+          "href": "/api/v1/reference/get-offramp-report"
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyId": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Your API key **ID only** — the part before the dot, e.g. `ak_live_abc123`. Never send the secret.\n\nThe key also selects the environment: a sandbox key is served by the sandbox environment even on the production host."
+      },
+      "timestamp": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-timestamp",
+        "description": "Current Unix timestamp in **milliseconds**. Requests older than 5 minutes are rejected."
+      },
+      "signature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-signature",
+        "description": "`HMAC-SHA256(timestamp + method + path + body, SHA256(secret))` as lowercase hex. See [Authentication](/api/v1/authentication)."
+      }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number, 1-indexed.",
+        "schema": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page.",
+        "schema": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "ReportLimit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page.",
+        "schema": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "SortOrder": {
+        "name": "sortOrder",
+        "in": "query",
+        "description": "Sort direction.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        }
+      },
+      "StartDate": {
+        "name": "startDate",
+        "in": "query",
+        "description": "Inclusive start date (ISO 8601), e.g. `2026-05-01`.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "EndDate": {
+        "name": "endDate",
+        "in": "query",
+        "description": "Inclusive end date (ISO 8601), e.g. `2026-05-31`.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "ContractId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Direct Debit contract ID.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "SubscriptionId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Subscription ID.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "BranchId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Branch ID.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "AggregatorUserId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Aggregator end-user ID returned by `POST /v1/aggregator/user`.",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid request body or validation error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 400,
+              "message": "amount must be a positive number",
+              "error": "Bad Request"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Invalid API key, signature, or timestamp outside the valid window.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 401,
+              "message": "Invalid signature",
+              "error": "Unauthorized"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The resource belongs to another merchant account.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 403,
+              "message": "Forbidden resource",
+              "error": "Forbidden"
+            }
+          }
+        }
+      },
+      "AggregatorForbidden": {
+        "description": "The resource belongs to another merchant, or your account lacks the `AGGREGATOR` role.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 403,
+              "message": "Aggregator access is not enabled for this account",
+              "error": "Forbidden"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 404,
+              "message": "Not found",
+              "error": "Not Found"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The resource conflicts with an existing one — for example a duplicate branch code.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 409,
+              "message": "Branch code already exists",
+              "error": "Conflict"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limit exceeded. Check the `X-RateLimit-Reset` header for when the window resets.",
+        "headers": {
+          "X-RateLimit-Limit": {
+            "description": "Requests allowed in the current window.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Remaining": {
+            "description": "Requests remaining in the current window.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-RateLimit-Reset": {
+            "description": "Unix timestamp when the window resets.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "statusCode": 429,
+              "message": "Too many requests",
+              "error": "Too Many Requests"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "description": "Standard error envelope returned by every endpoint.",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code."
+          },
+          "message": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "Human-readable message, or a list of validation messages."
+          },
+          "error": {
+            "type": "string",
+            "description": "HTTP status text."
+          }
+        }
+      },
+      "Currency": {
+        "type": "string",
+        "enum": [
+          "USDT",
+          "LKR"
+        ],
+        "description": "`USDT` settles directly. `LKR` is converted to USDT at the current rate."
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "totalItems": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "currentPage": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          },
+          "totalCount": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "hasNext": {
+            "type": "boolean"
+          },
+          "hasPrev": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaymentStatus": {
+        "type": "string",
+        "enum": [
+          "INITIATED",
+          "PAID",
+          "EXPIRED",
+          "FAILED"
+        ],
+        "description": "`INITIATED` — awaiting customer payment. `PAID` — completed. `EXPIRED` — customer did not pay in time. `FAILED` — the payment could not be processed."
+      },
+      "PaymentProvider": {
+        "type": "string",
+        "enum": [
+          "BYBIT",
+          "BINANCE"
+        ],
+        "description": "Crypto wallet the customer pays from."
+      },
+      "GoodsItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Product name."
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description."
+          },
+          "mccCode": {
+            "type": "string",
+            "default": "5818",
+            "description": "Merchant Category Code."
+          }
+        }
+      },
+      "CustomerBilling": {
+        "type": "object",
+        "required": [
+          "firstName",
+          "lastName",
+          "email",
+          "phone",
+          "address"
+        ],
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "description": "Street address."
+          },
+          "city": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerBillingResponse": {
+        "type": "object",
+        "description": "Billing details echoed back on the payment. Only the fields CeyPay retained are present.",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        }
+      },
+      "FeeBreakdown": {
+        "type": "object",
+        "description": "Gross-to-net fee breakdown. LKR fields are present only for LKR payments.",
+        "properties": {
+          "grossAmountUSDT": {
+            "type": "number"
+          },
+          "grossAmountLKR": {
+            "type": "number"
+          },
+          "exchangeFeePercentage": {
+            "type": "number"
+          },
+          "exchangeFeeAmountUSDT": {
+            "type": "number"
+          },
+          "exchangeFeeAmountLKR": {
+            "type": "number"
+          },
+          "ceypayFeePercentage": {
+            "type": "number"
+          },
+          "ceypayFeeAmountUSDT": {
+            "type": "number"
+          },
+          "ceypayFeeAmountLKR": {
+            "type": "number"
+          },
+          "totalFeesUSDT": {
+            "type": "number"
+          },
+          "totalFeesLKR": {
+            "type": "number"
+          },
+          "netAmountUSDT": {
+            "type": "number"
+          },
+          "netAmountLKR": {
+            "type": "number"
+          }
+        }
+      },
+      "CreatePaymentRequest": {
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "provider",
+          "goods",
+          "customerBilling"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Payment amount in `currency`."
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/PaymentProvider"
+          },
+          "goods": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/GoodsItem"
+            },
+            "description": "Products or services being purchased."
+          },
+          "customerBilling": {
+            "$ref": "#/components/schemas/CustomerBilling"
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Attribute this payment to a branch."
+          },
+          "orderExpireTime": {
+            "type": "string",
+            "description": "Expiry as a Unix timestamp in seconds."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to receive payment status updates."
+          },
+          "merchantTradeNo": {
+            "type": "string",
+            "description": "Your internal order reference."
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CeyPay payment ID."
+          },
+          "merchantId": {
+            "type": "string"
+          },
+          "payId": {
+            "type": "string",
+            "description": "The provider's payment ID."
+          },
+          "paymentNo": {
+            "type": "string",
+            "description": "Merchant trade number."
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount in USDT."
+          },
+          "currency": {
+            "type": "string",
+            "description": "Always `USDT` once processed."
+          },
+          "status": {
+            "$ref": "#/components/schemas/PaymentStatus"
+          },
+          "qrContent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "QR payload for wallet scanning. Absent on Direct Debit charges."
+          },
+          "checkoutLink": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Hosted checkout URL. Absent on Direct Debit charges."
+          },
+          "goods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GoodsItem"
+            }
+          },
+          "customerBilling": {
+            "$ref": "#/components/schemas/CustomerBillingResponse"
+          },
+          "paymentProvider": {
+            "type": "string"
+          },
+          "directDebitContractId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set when the payment was charged against a Direct Debit contract."
+          },
+          "usdtAmount": {
+            "type": "number",
+            "description": "USDT amount for LKR payments."
+          },
+          "exchangeRateSnapshot": {
+            "type": "number",
+            "description": "LKR per USDT at creation."
+          },
+          "lkrGrossAmount": {
+            "type": "number"
+          },
+          "lkrExchangeFeeAmount": {
+            "type": "number"
+          },
+          "lkrCeypayFeeAmount": {
+            "type": "number"
+          },
+          "lkrNetAmount": {
+            "type": "number"
+          },
+          "feeBreakdown": {
+            "$ref": "#/components/schemas/FeeBreakdown"
+          },
+          "expireTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paidAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreatePaymentLinkRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "currency",
+          "allowCustomAmount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name shown on the checkout page."
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Fixed amount. Required when `allowCustomAmount` is `false`."
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "allowCustomAmount": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let the customer enter their own amount."
+          },
+          "minAmount": {
+            "type": "number",
+            "description": "Minimum custom amount. Required when `allowCustomAmount` is `true`."
+          },
+          "maxAmount": {
+            "type": "number",
+            "description": "Maximum custom amount. Required when `allowCustomAmount` is `true`."
+          },
+          "allowQuantityBuy": {
+            "type": "boolean",
+            "default": false,
+            "description": "Let the customer buy more than one."
+          },
+          "maxQuantity": {
+            "type": "integer",
+            "description": "Maximum quantity per purchase. Required when `allowQuantityBuy` is `true`."
+          },
+          "reusable": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the link accepts more than one payment."
+          },
+          "expirationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "successUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "merchantTradeNo": {
+            "type": "string",
+            "description": "Your internal reference."
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PaymentLink": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "URL slug for the hosted checkout page."
+          },
+          "merchantTradeNo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "allowCustomAmount": {
+            "type": "boolean"
+          },
+          "minAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "maxAmount": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "allowQuantityBuy": {
+            "type": "boolean"
+          },
+          "maxQuantity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reusable": {
+            "type": "boolean"
+          },
+          "expirationDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "successUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "webhookUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "used_count": {
+            "type": "integer",
+            "description": "Number of payments taken through this link."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE",
+              "EXPIRED"
+            ]
+          },
+          "creator_type": {
+            "type": "string",
+            "enum": [
+              "API_KEY",
+              "USER"
+            ]
+          },
+          "creator_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DirectDebitProvider": {
+        "type": "string",
+        "enum": [
+          "BINANCE_PAY",
+          "BYBIT_PAY",
+          "KUCOIN_PAY"
+        ],
+        "description": "Direct Debit is currently live on `BINANCE_PAY`."
+      },
+      "DirectDebitStatus": {
+        "type": "string",
+        "enum": [
+          "INITIATED",
+          "SIGNED",
+          "TERMINATED",
+          "EXPIRED"
+        ],
+        "description": "`INITIATED` — awaiting the customer's signature. `SIGNED` — ready to charge. `TERMINATED` — cancelled. `EXPIRED` — the signing window lapsed."
+      },
+      "ScenarioCode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pass this as `scenarioId` when creating a contract."
+          },
+          "scenarioId": {
+            "type": "string",
+            "description": "The provider's own scenario identifier."
+          },
+          "scenarioName": {
+            "type": "string"
+          },
+          "paymentProvider": {
+            "$ref": "#/components/schemas/DirectDebitProvider"
+          },
+          "maxLimit": {
+            "type": "number",
+            "description": "Maximum per-transaction limit for this scenario."
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateDirectDebitRequest": {
+        "type": "object",
+        "required": [
+          "provider",
+          "serviceName",
+          "scenarioId",
+          "currency",
+          "singleUpperLimit",
+          "returnUrl",
+          "cancelUrl"
+        ],
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/DirectDebitProvider"
+          },
+          "merchantContractCode": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "Your own contract code. Auto-generated when omitted."
+          },
+          "branchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceName": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "Shown to the customer when they sign."
+          },
+          "scenarioId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "From `GET /v1/direct-debit/scenario-code/list`."
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "singleUpperLimit": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Maximum amount per charge, in `currency`."
+          },
+          "slippageBps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20000,
+            "default": 0,
+            "description": "Exchange-rate buffer in basis points for LKR contracts — 10000 bps = 100%. Rejected on USDT contracts."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "returnUrl": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512,
+            "description": "Where to send the customer after they sign."
+          },
+          "cancelUrl": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512,
+            "description": "Where to send the customer if they cancel."
+          }
+        }
+      },
+      "DirectDebitContract": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchantId": {
+            "type": "string"
+          },
+          "branchId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "paymentProvider": {
+            "$ref": "#/components/schemas/DirectDebitProvider"
+          },
+          "merchantContractCode": {
+            "type": "string"
+          },
+          "preContractId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contractId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The provider's contract ID, set once signed."
+          },
+          "bizId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "serviceName": {
+            "type": "string"
+          },
+          "scenarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "singleUpperLimit": {
+            "type": "number",
+            "description": "Per-charge limit in USDT, including the slippage buffer for LKR contracts."
+          },
+          "singleUpperLimitLkr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Original LKR limit, on LKR contracts only."
+          },
+          "slippageBps": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "periodic": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DirectDebitStatus"
+          },
+          "qrContent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "QR payload for signing."
+          },
+          "deepLink": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Wallet deep link for signing."
+          },
+          "contractEndTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "requestExpireTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "openUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "merchantAccountNo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contractTerminationWay": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "contractTerminationTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "terminationNotes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paymentCount": {
+            "type": "integer",
+            "description": "Charges made against this contract."
+          },
+          "totalAmountCharged": {
+            "type": "number"
+          },
+          "lastPaymentAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "webhookUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContractGoodsItem": {
+        "type": "object",
+        "required": [
+          "goodsType",
+          "goodsCategory",
+          "referenceGoodsId",
+          "goodsName"
+        ],
+        "properties": {
+          "goodsType": {
+            "type": "string",
+            "enum": [
+              "01",
+              "02"
+            ],
+            "description": "`01` tangible goods, `02` virtual goods."
+          },
+          "goodsCategory": {
+            "type": "string",
+            "description": "Goods category code, e.g. `Z000`."
+          },
+          "referenceGoodsId": {
+            "type": "string"
+          },
+          "goodsName": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "goodsDetail": {
+            "type": "string",
+            "maxLength": 256
+          }
+        }
+      },
+      "ChargeContractRequest": {
+        "type": "object",
+        "required": [
+          "currency",
+          "amount",
+          "productName"
+        ],
+        "properties": {
+          "currency": {
+            "$ref": "#/components/schemas/Currency",
+            "description": "May differ from the contract's currency."
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Amount in `currency`. Must not exceed the contract limit after conversion to USDT."
+          },
+          "productName": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "productDetail": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "goods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContractGoodsItem"
+            }
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Overrides the contract's webhook URL for this charge."
+          },
+          "customerBilling": {
+            "type": "object",
+            "required": [
+              "firstName",
+              "lastName",
+              "email"
+            ],
+            "properties": {
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SubscriptionStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "PAUSED",
+          "CANCELLED",
+          "COMPLETED",
+          "PAST_DUE"
+        ],
+        "description": "`ACTIVE` — billing on schedule. `PAUSED` — billing suspended. `PAST_DUE` — a charge failed and is being retried. `COMPLETED` — reached `maxCycles` or `endDate`. `CANCELLED` — ended early."
+      },
+      "CreateSubscriptionRequest": {
+        "type": "object",
+        "required": [
+          "contractId",
+          "name",
+          "billingCycle",
+          "amount",
+          "currency",
+          "productName",
+          "startDate"
+        ],
+        "properties": {
+          "contractId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A Direct Debit contract in `SIGNED` status."
+          },
+          "name": {
+            "type": "string",
+            "description": "Plan name."
+          },
+          "description": {
+            "type": "string"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ],
+            "description": "Base billing period."
+          },
+          "billingCycleInterval": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1,
+            "description": "Number of billing cycles between charges — `2` with `MONTHLY` bills every two months."
+          },
+          "amount": {
+            "type": "number",
+            "description": "Amount charged each cycle."
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productDetail": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "First billing date."
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Stop billing after this date."
+          },
+          "timezone": {
+            "type": "string",
+            "default": "Asia/Colombo",
+            "description": "IANA timezone used to evaluate the billing schedule."
+          },
+          "maxCycles": {
+            "type": "integer",
+            "description": "Stop after this many successful charges."
+          },
+          "spendingCap": {
+            "type": "number",
+            "description": "Stop once total charged reaches this amount."
+          },
+          "maxRetryAttempts": {
+            "type": "integer",
+            "default": 3,
+            "description": "Retries per failed charge before the subscription goes `PAST_DUE`."
+          },
+          "retryIntervalHours": {
+            "type": "integer",
+            "default": 24,
+            "description": "Hours between retries."
+          },
+          "gracePeriodDays": {
+            "type": "integer",
+            "default": 3,
+            "description": "Days a `PAST_DUE` subscription stays open before it is cancelled."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Arbitrary key-value pairs echoed back on the subscription and its webhooks."
+          }
+        }
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchantId": {
+            "type": "string"
+          },
+          "contractId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/SubscriptionStatus"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+              "YEARLY"
+            ]
+          },
+          "billingCycleInterval": {
+            "type": "integer"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productDetail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "maxCycles": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "spendingCap": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "completedCycles": {
+            "type": "integer",
+            "description": "Successful charges so far."
+          },
+          "totalAmountCharged": {
+            "type": "number"
+          },
+          "nextBillingAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastBilledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "maxRetryAttempts": {
+            "type": "integer"
+          },
+          "retryIntervalHours": {
+            "type": "integer"
+          },
+          "gracePeriodDays": {
+            "type": "integer"
+          },
+          "pausedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "cancellationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "webhookUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateBranchRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "code"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Unique within your merchant account. Map this to your own customer or location ID."
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "postalCode": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "telegramGroupId": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Telegram group to notify on branch activity."
+          }
+        }
+      },
+      "UpdateBranchRequest": {
+        "type": "object",
+        "description": "All fields are optional — send only what you want to change.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "postalCode": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "telegramGroupId": {
+            "type": "string",
+            "maxLength": 50
+          }
+        }
+      },
+      "Branch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchantId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "telegramGroupId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "usesMerchantBankAccount": {
+            "type": "boolean",
+            "description": "Always `true` for branches created via the API."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WithdrawalStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "APPROVED",
+          "REJECTED",
+          "CANCELLED"
+        ],
+        "description": "`PENDING` — awaiting review. `APPROVED` — transfer initiated. `REJECTED` — declined; the payments return to the unsettled pool. `CANCELLED` — withdrawn before review."
+      },
+      "WithdrawalRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bankRefId": {
+            "type": "string",
+            "description": "Reference quoted on the bank transfer."
+          },
+          "merchantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "merchantName": {
+            "type": "string"
+          },
+          "branchId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "settlementDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "requestedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Dashboard user who made the request. `null` for API-created requests."
+          },
+          "requesterName": {
+            "type": "string",
+            "description": "`\"API\"` for API-created requests."
+          },
+          "apiKeyId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "API key that made the request, when created via the API."
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WithdrawalStatus"
+          },
+          "totalPaymentsCount": {
+            "type": "integer"
+          },
+          "totalNetAmountLkr": {
+            "type": "number"
+          },
+          "totalNetAmountUsdt": {
+            "type": "number"
+          },
+          "totalGrossAmountLkr": {
+            "type": "number"
+          },
+          "totalGrossAmountUsdt": {
+            "type": "number"
+          },
+          "totalFeesLkr": {
+            "type": "number"
+          },
+          "totalFeesUsdt": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WithdrawalSummary": {
+        "type": "object",
+        "properties": {
+          "totalRequests": {
+            "type": "integer"
+          },
+          "totalLkrAmount": {
+            "type": "number"
+          },
+          "totalUsdtAmount": {
+            "type": "number"
+          },
+          "pendingCount": {
+            "type": "integer"
+          },
+          "approvedCount": {
+            "type": "integer"
+          },
+          "rejectedCount": {
+            "type": "integer"
+          },
+          "lkrToBeClaimed": {
+            "type": "number",
+            "description": "Unsettled balance not yet requested."
+          },
+          "usdtToBeClaimed": {
+            "type": "number"
+          }
+        }
+      },
+      "Bank": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "CEFTS bank code — pass as `bankCode` when registering a bank account."
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AggregatorUser": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CeyPay's user ID — use this in subsequent requests."
+          },
+          "externalUserId": {
+            "type": "string",
+            "description": "The ID you provided."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AddBankAccountRequest": {
+        "type": "object",
+        "required": [
+          "bankCode",
+          "accountNumber",
+          "accountName"
+        ],
+        "properties": {
+          "bankCode": {
+            "type": "integer",
+            "description": "CEFTS bank code from `GET /v1/bank/list`."
+          },
+          "accountNumber": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "accountName": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Account holder name."
+          },
+          "beneficiaryMobile": {
+            "type": "string",
+            "description": "e.g. `+94771234567`."
+          },
+          "beneficiaryEmail": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 255
+          }
+        }
+      },
+      "AggregatorUserBankAccount": {
+        "type": "object",
+        "properties": {
+          "userBankId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pass this as `userBankId` when creating an offramp."
+          },
+          "bankCode": {
+            "type": "integer"
+          },
+          "bankName": {
+            "type": "string"
+          },
+          "accountNumber": {
+            "type": "string"
+          },
+          "accountName": {
+            "type": "string"
+          },
+          "beneficiaryMobile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "beneficiaryEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FxQuote": {
+        "type": "object",
+        "properties": {
+          "fxLockId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Rate lock ID — pass to `POST /v1/aggregator/offramp`."
+          },
+          "rateUsdtLkr": {
+            "type": "number",
+            "description": "Locked LKR per USDT."
+          },
+          "amountUsdt": {
+            "type": "number"
+          },
+          "amountLkr": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "60 seconds after issuance."
+          }
+        }
+      },
+      "OfframpStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "PROCESSING",
+          "COMPLETED",
+          "FAILED"
+        ],
+        "description": "`PENDING` — queued. `PROCESSING` — transfer in flight. `COMPLETED` — settled, `bankRef` set. `FAILED` — reversed to your float."
+      },
+      "CreateOfframpRequest": {
+        "type": "object",
+        "required": [
+          "fxLockId",
+          "userId",
+          "userBankId",
+          "externalRef"
+        ],
+        "properties": {
+          "fxLockId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "From `GET /v1/aggregator/quote`. Must not be expired or already used."
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "From `POST /v1/aggregator/user`."
+          },
+          "userBankId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "From `POST /v1/aggregator/user/{id}/bank-account`."
+          },
+          "externalRef": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Your idempotency key. Must be unique per transfer — resubmitting returns the original offramp."
+          },
+          "webhookUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Receives `payment.completed` or `payment.failed`."
+          }
+        }
+      },
+      "Offramp": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CeyPay's offramp ID."
+          },
+          "status": {
+            "$ref": "#/components/schemas/OfframpStatus"
+          },
+          "amountUsdt": {
+            "type": "number"
+          },
+          "amountLkr": {
+            "type": "number"
+          },
+          "rateUsdtLkr": {
+            "type": "number"
+          },
+          "externalRef": {
+            "type": "string"
+          },
+          "bankRef": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Bank transaction reference, set once `COMPLETED`."
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LedgerSummary": {
+        "type": "object",
+        "properties": {
+          "currentBalanceLkr": {
+            "type": "number",
+            "description": "Live float balance at request time."
+          },
+          "totalCreditsLkr": {
+            "type": "number"
+          },
+          "totalDebitsLkr": {
+            "type": "number"
+          },
+          "totalRefundsLkr": {
+            "type": "number"
+          },
+          "netMovementLkr": {
+            "type": "number",
+            "description": "`credits − debits + refunds` for the period."
+          },
+          "creditCount": {
+            "type": "integer"
+          },
+          "debitCount": {
+            "type": "integer"
+          },
+          "refundCount": {
+            "type": "integer"
+          },
+          "openingBalanceLkr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Balance immediately before `startDate`. `null` without a `startDate`."
+          },
+          "closingBalanceLkr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Balance at the last entry on or before `endDate`. `null` without an `endDate`."
+          }
+        }
+      },
+      "LedgerEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "CREDIT",
+              "DEBIT",
+              "REFUND"
+            ],
+            "description": "`CREDIT` — float top-up. `DEBIT` — offramp charge. `REFUND` — failed offramp reversal."
+          },
+          "amountLkr": {
+            "type": "number"
+          },
+          "balanceAfter": {
+            "type": "number"
+          },
+          "aggregatorOfframpId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set on `DEBIT` and `REFUND` entries."
+          },
+          "bankRef": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set on `CREDIT` entries."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OfframpReportSummary": {
+        "type": "object",
+        "description": "Always covers the full date window, regardless of the `status` filter applied to the items.",
+        "properties": {
+          "totalCount": {
+            "type": "integer"
+          },
+          "totalAmountLkr": {
+            "type": "number"
+          },
+          "totalAmountUsdt": {
+            "type": "number"
+          },
+          "completedCount": {
+            "type": "integer"
+          },
+          "completedAmountLkr": {
+            "type": "number"
+          },
+          "completedAmountUsdt": {
+            "type": "number"
+          },
+          "pendingCount": {
+            "type": "integer"
+          },
+          "pendingAmountLkr": {
+            "type": "number"
+          },
+          "processingCount": {
+            "type": "integer"
+          },
+          "processingAmountLkr": {
+            "type": "number"
+          },
+          "failedCount": {
+            "type": "integer"
+          },
+          "failedAmountLkr": {
+            "type": "number",
+            "description": "LKR returned to float via refunds."
+          },
+          "averageRateUsdtLkr": {
+            "type": "number",
+            "description": "Weighted average rate across `COMPLETED` offramps only."
+          }
+        }
+      },
+      "OfframpReportItem": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "externalRef": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OfframpStatus"
+          },
+          "amountUsdt": {
+            "type": "number"
+          },
+          "amountLkr": {
+            "type": "number"
+          },
+          "rateUsdtLkr": {
+            "type": "number"
+          },
+          "bankRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failureReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set when `FAILED`."
+          },
+          "externalUserId": {
+            "type": "string",
+            "description": "Your internal ID for the end-user."
+          },
+          "accountNumber": {
+            "type": "string"
+          },
+          "bankName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "processedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "failedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

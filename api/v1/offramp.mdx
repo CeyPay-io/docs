@@ -1,448 +1,91 @@
 ---
-title: "Offramp API"
-description: "Convert USDT to LKR and settle directly to a Sri Lankan bank account. B2B API for aggregators that need to programmatically disburse funds to end-users."
+title: "Offramp Guide"
+description: "How to convert USDT to LKR and settle directly to a Sri Lankan bank account: the transfer flow, FX rate locks, idempotency, and webhooks."
 ---
 
-## Endpoints
+The Offramp API converts USDT to LKR and pays it into a Sri Lankan bank account. It is built for aggregators and exchanges that need to disburse funds to their own end-users programmatically.
 
-| Method | Endpoint | Description | Rate Limit |
-|--------|----------|-------------|------------|
-| GET | `/v1/bank/list` | List supported banks and their codes | 300 req/min |
-| POST | `/v1/aggregator/user` | Create or retrieve an end-user | 120 req/min |
-| POST | `/v1/aggregator/user/:id/bank-account` | Add a bank account for an end-user | 60 req/min |
-| GET | `/v1/aggregator/user/:id/bank-account/list` | List bank accounts for an end-user | 200 req/min |
-| GET | `/v1/aggregator/quote` | Get a locked FX rate | 120 req/min |
-| POST | `/v1/aggregator/offramp` | Create an offramp (USDT → LKR transfer) | 60 req/min |
-| GET | `/v1/aggregator/offramp/:id` | Get offramp status | 300 req/min |
-| GET | `/v1/aggregator/report/ledger` | Float balance ledger reconciliation report | 60 req/min |
-| GET | `/v1/aggregator/report/offramp` | Offramp transaction reconciliation report | 60 req/min |
+For the endpoint reference and a live playground, see the **Offramp** endpoints in the sidebar.
 
 <Warning>
-The Offramp API is only available to merchants with the `AGGREGATOR` role. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable this for your account.
+  Offramp is available only to merchants with the `AGGREGATOR` role. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable it for your account.
 </Warning>
 
 ---
 
-## Flow Overview
+## Transfer Flow
 
 <Steps>
   <Step title="Look up bank codes">
-    Call `GET /v1/bank/list` to get CEFTS bank codes. This is a one-time reference — cache the list and reuse it.
+    Call `GET /v1/bank/list` for CEFTS bank codes. This is static reference data — fetch it once and cache it.
   </Step>
-  <Step title="Create or retrieve end-user">
-    Call `POST /v1/aggregator/user` once per end-user. Safe to call on every offramp — returns the existing record if the user already exists.
+  <Step title="Register the end-user">
+    Call `POST /v1/aggregator/user` with your own user ID. The call is an upsert, so it is safe to run before every transfer.
   </Step>
   <Step title="Register their bank account">
-    Call `POST /v1/aggregator/user/:id/bank-account` to add a Sri Lankan bank account. Store the returned `userBankId`.
+    Call `POST /v1/aggregator/user/{id}/bank-account` and store the returned `userBankId`.
   </Step>
   <Step title="Lock an FX rate">
     Call `GET /v1/aggregator/quote` with the USDT amount. The returned `fxLockId` is valid for 60 seconds.
   </Step>
   <Step title="Initiate the transfer">
-    Call `POST /v1/aggregator/offramp` with the `fxLockId`, `userId`, and `userBankId`.
+    Call `POST /v1/aggregator/offramp` with the `fxLockId`, `userId`, `userBankId`, and your `externalRef`.
   </Step>
-  <Step title="Poll status or receive webhook">
-    Call `GET /v1/aggregator/offramp/:id` to check status, or provide a `webhookUrl` to receive `payment.completed` / `payment.failed` events.
+  <Step title="Track completion">
+    Poll `GET /v1/aggregator/offramp/{id}`, or supply a `webhookUrl` to be notified instead.
   </Step>
 </Steps>
 
-Steps 2 and 3 only need to run once per end-user and bank account. Both IDs are reusable across multiple offramps.
+Steps 2 and 3 run once per end-user and bank account. Both IDs are reusable across every subsequent transfer.
 
 ---
 
-## Authentication
+## Privacy
 
-All endpoints require [HMAC authentication](/api/v1/authentication):
-
-- `x-api-key`: Your API key ID (e.g. `ak_live_xxx`)
-- `x-timestamp`: Current Unix timestamp in milliseconds
-- `x-signature`: HMAC-SHA256 signature
+CeyPay stores only the `externalUserId` you supply, plus the bank account details needed to make the transfer. No other personal or identifying information about your end-users is collected or retained.
 
 ---
 
-## List Supported Banks
+## FX Rate Locks
 
-Returns all active Sri Lankan banks and their CEFTS codes. Use this to look up the `bankCode` required when registering a bank account.
+A quote locks the USDT/LKR rate for **60 seconds**. Submit the offramp before `expiresAt` — expired locks and locks already spent on another transfer are both rejected with a `400`.
 
-```
-GET /v1/bank/list
-```
+Fetch the quote immediately before you create the offramp, not at the start of a longer user flow. If a lock expires, request a fresh quote rather than retrying with the old ID.
 
-### Example Request
+---
 
-```bash
-curl "https://api.ceypay.io/v1/bank/list" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
+## Idempotency
 
-### Example Response
+`POST /v1/aggregator/offramp` is idempotent on `externalRef`. Resubmitting the same key — after a network timeout, for instance — returns the original offramp unchanged instead of creating a second transfer.
+
+Use a stable key drawn from your own system:
 
 ```json
-[
-  { "code": 7056, "name": "Commercial Bank PLC" },
-  { "code": 7083, "name": "Bank of Ceylon" },
-  { "code": 7010, "name": "People's Bank" }
-]
+{ "externalRef": "withdrawal-9876543" }
 ```
 
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `code` | number | CEFTS bank code — pass as `bankCode` when registering a bank account |
-| `name` | string | Full bank name |
+Never generate the key randomly per attempt, and never reuse a key across genuinely different transfers.
 
 ---
 
-## Create or Retrieve User
-
-Upserts an end-user by your internal user ID. Returns the existing record if the user already exists.
-
-```
-POST /v1/aggregator/user
-```
-
-### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `externalUserId` | string | Yes | User ID in your system (max 255 chars) |
-
-CeyPay only stores the `externalUserId` you provide. No personal or identifying information about your end-users is collected or retained on our end.
-
-### Example Request
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/aggregator/user" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "externalUserId": "usr_1234567890"
-  }'
-```
-
-### Example Response
-
-```json
-{
-  "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalUserId": "usr_1234567890",
-  "createdAt": "2026-05-28T10:00:00.000Z"
-}
-```
-
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `userId` | string (UUID) | CeyPay's internal user ID — use this in subsequent requests |
-| `externalUserId` | string | The ID you provided |
-| `createdAt` | string | When the user was first registered (ISO 8601) |
-
----
-
-## Add Bank Account
-
-Registers a Sri Lankan bank account for an end-user. Returns a `userBankId` used when creating offramps. A single end-user can have multiple bank accounts registered — each gets its own `userBankId`.
-
-```
-POST /v1/aggregator/user/:id/bank-account
-```
-
-### Path Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string (UUID) | Aggregator user ID from `POST /v1/aggregator/user` |
-
-### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `bankCode` | number | Yes | CEFTS bank code from `GET /v1/bank/list` |
-| `accountNumber` | string | Yes | Bank account number (max 100 chars) |
-| `accountName` | string | Yes | Account holder name (max 255 chars) |
-| `beneficiaryMobile` | string | No | Beneficiary mobile number (e.g. `+94771234567`) |
-| `beneficiaryEmail` | string | No | Beneficiary email address (max 255 chars) |
-
-### Example Request
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440000/bank-account" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "bankCode": 7056,
-    "accountNumber": "1234567890",
-    "accountName": "John Doe"
-  }'
-```
-
-### Example Response
-
-```json
-{
-  "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
-  "bankCode": 7056,
-  "bankName": "Commercial Bank PLC",
-  "accountNumber": "1234567890",
-  "accountName": "John Doe",
-  "beneficiaryMobile": "+94771234567",
-  "beneficiaryEmail": "john.doe@example.com",
-  "createdAt": "2026-05-28T10:01:00.000Z"
-}
-```
-
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `userBankId` | string (UUID) | Bank account ID — use this in `POST /v1/aggregator/offramp` |
-| `bankCode` | number | CEFTS bank code |
-| `bankName` | string | Resolved bank name |
-| `accountNumber` | string | Account number |
-| `accountName` | string | Account holder name |
-| `beneficiaryMobile` | string \| null | Beneficiary mobile number |
-| `beneficiaryEmail` | string \| null | Beneficiary email address |
-| `createdAt` | string | ISO 8601 timestamp |
-
----
-
-## List Bank Accounts
-
-Returns all registered bank accounts for an end-user.
-
-```
-GET /v1/aggregator/user/:id/bank-account/list
-```
-
-### Path Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string (UUID) | Aggregator user ID |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440000/bank-account/list" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-[
-  {
-    "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
-    "bankCode": 7056,
-    "bankName": "Commercial Bank PLC",
-    "accountNumber": "1234567890",
-    "accountName": "John Doe",
-    "beneficiaryMobile": "+94771234567",
-    "beneficiaryEmail": "john.doe@example.com",
-    "createdAt": "2026-05-28T10:01:00.000Z"
-  }
-]
-```
-
----
-
-## Get a Quote
-
-Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Use the returned `fxLockId` in `POST /v1/aggregator/offramp` before it expires.
-
-```
-GET /v1/aggregator/quote
-```
-
-### Query Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `amount_usdt` | number | Yes | USDT amount to convert (min: 0.00000001, max: 1,000,000) |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/aggregator/quote?amount_usdt=1000" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
-  "rateUsdtLkr": 295.50,
-  "amountUsdt": 1000.00,
-  "amountLkr": 295500.00,
-  "expiresAt": "2026-05-28T10:01:00.000Z"
-}
-```
-
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/aggregator/offramp` |
-| `rateUsdtLkr` | number | Locked exchange rate (USDT per LKR) |
-| `amountUsdt` | number | USDT amount you requested |
-| `amountLkr` | number | LKR equivalent at the locked rate |
-| `expiresAt` | string | When this rate lock expires — 60 seconds from issuance (ISO 8601) |
-
-<Warning>
-Submit the offramp before `expiresAt`. Expired or already-used `fxLockId` values are rejected. Fetch a fresh quote if the lock expires before you submit.
-</Warning>
-
----
-
-## Create Offramp
-
-Initiates a USDT → LKR bank transfer. This endpoint is idempotent on `externalRef` — submitting the same key twice returns the original offramp unchanged.
-
-```
-POST /v1/aggregator/offramp
-```
-
-### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `fxLockId` | string (UUID) | Yes | Rate lock ID from `GET /v1/aggregator/quote` |
-| `userId` | string (UUID) | Yes | End-user ID from `POST /v1/aggregator/user` |
-| `userBankId` | string (UUID) | Yes | Bank account ID from `POST /v1/aggregator/user/:id/bank-account` |
-| `externalRef` | string | Yes | Your idempotency key — must be unique per transfer (max 255 chars) |
-| `webhookUrl` | string | No | URL to receive `payment.completed` or `payment.failed` webhook |
-
-### Example Request
-
-```bash
-curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here" \
-  -d '{
-    "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
-    "externalRef": "withdrawal-9876543",
-    "webhookUrl": "https://api.yourplatform.com/ceypay/webhook"
-  }'
-```
-
-### Example Response
-
-```json
-{
-  "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
-  "status": "PENDING",
-  "amountUsdt": 1000.00,
-  "amountLkr": 295500.00,
-  "rateUsdtLkr": 295.50,
-  "externalRef": "withdrawal-9876543",
-  "bankRef": null,
-  "completedAt": null,
-  "failedAt": null,
-  "createdAt": "2026-05-28T10:00:45.000Z"
-}
-```
-
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `paymentId` | string (UUID) | CeyPay's offramp ID — use this to poll status |
-| `status` | string | Current status (see [Offramp Status](#offramp-status)) |
-| `amountUsdt` | number | USDT amount debited |
-| `amountLkr` | number | LKR amount credited to the bank account |
-| `rateUsdtLkr` | number | Exchange rate applied |
-| `externalRef` | string | Your idempotency key |
-| `bankRef` | string \| null | Bank transaction reference — available once `COMPLETED` |
-| `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
-| `failedAt` | string \| null | ISO 8601 timestamp when transfer failed |
-| `createdAt` | string | ISO 8601 timestamp when offramp was created |
-
----
-
-## Get Offramp
-
-Retrieve the current status of an offramp.
-
-```
-GET /v1/aggregator/offramp/:id
-```
-
-### Path Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string (UUID) | Offramp `paymentId` |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/aggregator/offramp/c1d2e3f4-a5b6-4c7d-8e9f-001122334455" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response (Completed)
-
-```json
-{
-  "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
-  "status": "COMPLETED",
-  "amountUsdt": 1000.00,
-  "amountLkr": 295500.00,
-  "rateUsdtLkr": 295.50,
-  "externalRef": "withdrawal-9876543",
-  "bankRef": "BOC-TX-123456",
-  "completedAt": "2026-05-28T10:05:00.000Z",
-  "failedAt": null,
-  "createdAt": "2026-05-28T10:00:45.000Z"
-}
-```
-
-### Error Responses
-
-| Status | Description |
-|--------|-------------|
-| 403 | Offramp does not belong to your merchant account |
-| 404 | Offramp not found |
-
----
-
-## Offramp Status
-
-| Status | Description |
-|--------|-------------|
-| `PENDING` | Offramp created, queued for processing |
-| `PROCESSING` | Bank transfer in progress |
-| `COMPLETED` | Transfer settled — `bankRef` and `completedAt` are set |
-| `FAILED` | Transfer failed — `failedAt` is set; see webhook `failureReason` |
+## Offramp Statuses
+
+| Status       | Meaning                                                       |
+| ------------ | ------------------------------------------------------------- |
+| `PENDING`    | Created and queued for processing                             |
+| `PROCESSING` | Bank transfer in flight                                       |
+| `COMPLETED`  | Settled — `bankRef` and `completedAt` are set                  |
+| `FAILED`     | Could not be settled — the LKR is refunded to your float       |
+
+A failed offramp posts a `REFUND` entry back to your float ledger, so your balance reconciles without manual intervention.
 
 ---
 
 ## Webhooks
 
-Set `webhookUrl` in your offramp request to receive a notification when the transfer settles or fails. Webhooks use the same ED25519 signature scheme as other CeyPay webhooks — see [Webhook Integration Guide](/api/v1/webhooks) for signature verification details.
+Set `webhookUrl` on the offramp request to be notified when the transfer settles or fails. Offramp webhooks use the same ED25519 signature scheme as every other CeyPay webhook — see the [Webhooks Guide](/api/v1/webhooks) for verification details.
 
 ### payment.completed
-
-Fired when the bank transfer settles successfully.
 
 ```json
 {
@@ -459,8 +102,6 @@ Fired when the bank transfer settles successfully.
 
 ### payment.failed
 
-Fired when the bank transfer cannot be completed.
-
 ```json
 {
   "event": "payment.failed",
@@ -474,7 +115,7 @@ Fired when the bank transfer cannot be completed.
 }
 ```
 
-### Webhook Headers
+### Headers
 
 ```
 X-Webhook-Signature: <base64-encoded ED25519 signature>
@@ -484,282 +125,43 @@ Content-Type: application/json
 User-Agent: CeyPay-Webhook/2.0
 ```
 
-### Retry Policy
+### Retry schedule
 
-| Attempt | Delay After Previous |
-|---------|---------------------|
-| 1 | Immediate |
-| 2 | 1 minute |
-| 3 | 2 minutes |
-| 4 | 4 minutes |
-| 5 | 8 minutes |
+| Attempt | Delay after previous |
+| ------- | -------------------- |
+| 1       | Immediate            |
+| 2       | 1 minute             |
+| 3       | 2 minutes            |
+| 4       | 4 minutes            |
+| 5       | 8 minutes            |
 
-CeyPay retries on connection timeout, non-2xx responses, or network errors. Respond with `200` immediately and process the event asynchronously.
-
----
-
-## Idempotency
-
-`POST /v1/aggregator/offramp` is idempotent on `externalRef`. If you submit the same key twice (e.g. after a network timeout), CeyPay returns the original offramp unchanged — no duplicate transfer is created.
-
-Use a stable, meaningful key such as your internal withdrawal ID:
-
-```
-"externalRef": "withdrawal-9876543"
-```
+CeyPay retries on connection timeouts, non-2xx responses, and network errors. Return `200` immediately and process the event asynchronously.
 
 ---
 
-## Error Responses
+## Reconciliation
 
-| Status | Error | Description |
-|--------|-------|-------------|
-| 400 | Bad Request | Validation error, expired FX quote, or already-used `fxLockId` |
-| 401 | Unauthorized | Invalid API key or HMAC signature |
-| 403 | Forbidden | Offramp belongs to another merchant, or account lacks Aggregator access |
-| 404 | Not Found | Offramp not found |
-| 429 | Too Many Requests | Rate limit exceeded |
+Two read-only reports let you reconcile against your own ledger. Both are paginated and support date-range filtering.
 
-See [Error Codes](/api/v1/errors) for detailed error handling.
+**Float balance ledger** (`GET /v1/aggregator/report/ledger`) — every LKR movement on your float: admin top-ups (`CREDIT`), offramp charges (`DEBIT`), and failed-transfer reversals (`REFUND`). The summary block carries opening and closing balances for the window, so a period reconciles end to end.
 
----
-
-## Reconciliation Reports
-
-Two read-only endpoints are available for reconciling your float balance and offramp activity against your own records. Both endpoints are paginated and support date-range filtering.
-
----
-
-## Float Balance Ledger Report
-
-Returns a paginated log of every LKR movement on your float (top-ups, offramp debits, and refunds) together with period summary statistics.
-
-```
-GET /v1/aggregator/report/ledger
-```
-
-### Query Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `page` | number | No | Page number, 1-indexed (default: 1) |
-| `limit` | number | No | Items per page, max 100 (default: 50) |
-| `type` | string | No | Filter by entry type: `CREDIT`, `DEBIT`, or `REFUND` |
-| `startDate` | string | No | Inclusive start date — ISO 8601 format, e.g. `2026-05-01` |
-| `endDate` | string | No | Inclusive end date — ISO 8601 format, e.g. `2026-05-31` |
-| `sortOrder` | string | No | `asc` or `desc` (default: `desc`) |
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&endDate=2026-05-31&limit=50" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 1,
-    "totalCount": 13,
-    "limit": 50,
-    "hasNext": false,
-    "hasPrev": false
-  },
-  "summary": {
-    "currentBalanceLkr": 500000.00,
-    "totalCreditsLkr": 750000.00,
-    "totalDebitsLkr": 295500.00,
-    "totalRefundsLkr": 0.00,
-    "netMovementLkr": 454500.00,
-    "creditCount": 3,
-    "debitCount": 10,
-    "refundCount": 0,
-    "openingBalanceLkr": 45500.00,
-    "closingBalanceLkr": 500000.00
-  },
-  "ledger": [
-    {
-      "id": "d4e5f6a7-b8c9-4d0e-1f2a-334455667788",
-      "type": "DEBIT",
-      "amountLkr": 295500.00,
-      "balanceAfter": 500000.00,
-      "aggregatorOfframpId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
-      "bankRef": null,
-      "notes": null,
-      "createdAt": "2026-05-28T10:00:45.000Z"
-    },
-    {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-001122334455",
-      "type": "CREDIT",
-      "amountLkr": 1000000.00,
-      "balanceAfter": 795500.00,
-      "aggregatorOfframpId": null,
-      "bankRef": "BOC-TOPUP-789",
-      "notes": "May float top-up",
-      "createdAt": "2026-05-02T08:00:00.000Z"
-    }
-  ]
-}
-```
-
-### Summary Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `currentBalanceLkr` | number | Live float balance at the time of the request |
-| `totalCreditsLkr` | number | Sum of all `CREDIT` entries in the date window |
-| `totalDebitsLkr` | number | Sum of all `DEBIT` entries in the date window |
-| `totalRefundsLkr` | number | Sum of all `REFUND` entries (failed offramp reversals) in the date window |
-| `netMovementLkr` | number | `credits − debits + refunds` for the period |
-| `creditCount` | number | Number of credit entries |
-| `debitCount` | number | Number of debit entries |
-| `refundCount` | number | Number of refund entries |
-| `openingBalanceLkr` | number \| null | Balance snapshot immediately before `startDate`; `null` if no `startDate` or no prior entries |
-| `closingBalanceLkr` | number \| null | Balance snapshot of the last entry on or before `endDate`; `null` if no `endDate` |
-
-### Ledger Item Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string (UUID) | Ledger entry ID |
-| `type` | string | `CREDIT` (admin top-up), `DEBIT` (offramp charge), or `REFUND` (failed offramp reversal) |
-| `amountLkr` | number | LKR amount of this entry |
-| `balanceAfter` | number | Float balance immediately after this entry was recorded |
-| `aggregatorOfframpId` | string \| null | Linked offramp ID — set on `DEBIT` and `REFUND` entries |
-| `bankRef` | string \| null | Bank transfer reference — set on `CREDIT` entries |
-| `notes` | string \| null | Optional notes added at the time of the entry |
-| `createdAt` | string | ISO 8601 timestamp |
-
----
-
-## Offramp Transaction Report
-
-Returns a paginated list of offramps with per-status summary statistics and a weighted average FX rate. Each row includes the partner user ID and bank details so the report is self-contained for export.
-
-```
-GET /v1/aggregator/report/offramp
-```
-
-### Query Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `page` | number | No | Page number, 1-indexed (default: 1) |
-| `limit` | number | No | Items per page, max 100 (default: 50) |
-| `status` | string | No | Filter items by status: `PENDING`, `PROCESSING`, `COMPLETED`, or `FAILED` |
-| `startDate` | string | No | Inclusive start date on `created_at` — ISO 8601 format |
-| `endDate` | string | No | Inclusive end date on `created_at` — ISO 8601 format |
-| `sortBy` | string | No | `created_at` (default), `completed_at`, or `amount_lkr` |
-| `sortOrder` | string | No | `asc` or `desc` (default: `desc`) |
-
-The summary block always covers the full date window regardless of the `status` filter, so all per-status breakdowns remain visible even when the item list is filtered to a single status.
-
-### Example Request
-
-```bash
-curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&endDate=2026-05-31&status=COMPLETED" \
-  -H "x-api-key: ak_live_abc123" \
-  -H "x-timestamp: 1748430000000" \
-  -H "x-signature: your_signature_here"
-```
-
-### Example Response
-
-```json
-{
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 1,
-    "totalCount": 12,
-    "limit": 50,
-    "hasNext": false,
-    "hasPrev": false
-  },
-  "summary": {
-    "totalCount": 15,
-    "totalAmountLkr": 4425000.00,
-    "totalAmountUsdt": 15000.00,
-    "completedCount": 12,
-    "completedAmountLkr": 3540000.00,
-    "completedAmountUsdt": 12000.00,
-    "pendingCount": 1,
-    "pendingAmountLkr": 295500.00,
-    "processingCount": 1,
-    "processingAmountLkr": 295500.00,
-    "failedCount": 1,
-    "failedAmountLkr": 294000.00,
-    "averageRateUsdtLkr": 295.00000000
-  },
-  "offramps": [
-    {
-      "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
-      "externalRef": "withdrawal-9876543",
-      "status": "COMPLETED",
-      "amountUsdt": 1000.00,
-      "amountLkr": 295500.00,
-      "rateUsdtLkr": 295.50,
-      "bankRef": "BOC-TX-123456",
-      "failureReason": null,
-      "externalUserId": "usr_1234567890",
-      "accountNumber": "1234567890",
-      "bankName": "Bank of Ceylon",
-      "processedAt": "2026-05-28T10:02:00.000Z",
-      "completedAt": "2026-05-28T10:05:00.000Z",
-      "failedAt": null,
-      "createdAt": "2026-05-28T10:00:45.000Z"
-    }
-  ]
-}
-```
-
-### Summary Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `totalCount` | number | Total offramps in the date window (all statuses) |
-| `totalAmountLkr` | number | Sum of `amountLkr` across all statuses in the window |
-| `totalAmountUsdt` | number | Sum of `amountUsdt` across all statuses in the window |
-| `completedCount` | number | Number of `COMPLETED` offramps |
-| `completedAmountLkr` | number | LKR total for completed offramps |
-| `completedAmountUsdt` | number | USDT total for completed offramps |
-| `pendingCount` | number | Number of `PENDING` offramps |
-| `pendingAmountLkr` | number | LKR total for pending offramps |
-| `processingCount` | number | Number of `PROCESSING` offramps |
-| `processingAmountLkr` | number | LKR total for processing offramps |
-| `failedCount` | number | Number of `FAILED` offramps |
-| `failedAmountLkr` | number | LKR amount returned to float via refunds |
-| `averageRateUsdtLkr` | number | Weighted average USDT/LKR rate for `COMPLETED` offramps only |
-
-### Offramp Item Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `paymentId` | string (UUID) | CeyPay offramp ID |
-| `externalRef` | string | Your idempotency key |
-| `status` | string | Current status (see [Offramp Status](#offramp-status)) |
-| `amountUsdt` | number | USDT amount |
-| `amountLkr` | number | LKR amount |
-| `rateUsdtLkr` | number | Exchange rate applied |
-| `bankRef` | string \| null | Bank transaction reference — set when `COMPLETED` |
-| `failureReason` | string \| null | Failure description — set when `FAILED` |
-| `externalUserId` | string | Your internal user ID for the end-user |
-| `accountNumber` | string | Destination bank account number |
-| `bankName` | string \| null | Destination bank name |
-| `processedAt` | string \| null | ISO 8601 timestamp when processing began |
-| `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
-| `failedAt` | string \| null | ISO 8601 timestamp when transfer failed |
-| `createdAt` | string | ISO 8601 timestamp when offramp was created |
+**Offramp transactions** (`GET /v1/aggregator/report/offramp`) — one row per offramp with the end-user ID and destination bank details included, so the export stands alone. The summary always covers the full date window even when you filter the rows to a single status, which keeps per-status breakdowns visible.
 
 ---
 
 ## Related Documentation
 
-- [Authentication](/api/v1/authentication) — HMAC signature details
-- [Webhooks](/api/v1/webhooks) — Signature verification and retry policy
-- [Rate Limits](/api/v1/rate-limits) — API rate limiting
-- [Errors](/api/v1/errors) — Error codes reference
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/v1/authentication">
+    HMAC signature details
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api/v1/webhooks">
+    Signature verification and retries
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/v1/rate-limits">
+    Per-endpoint request budgets
+  </Card>
+  <Card title="Errors" icon="circle-exclamation" href="/api/v1/errors">
+    Error codes and handling
+  </Card>
+</CardGroup>
