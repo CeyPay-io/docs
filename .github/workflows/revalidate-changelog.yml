@@ -1,0 +1,19 @@
+name: Revalidate website changelog pill
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "changelog/product-updates.mdx"
+
+jobs:
+    revalidate:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Wait for Mintlify to deploy the updated RSS feed
+              run: sleep 120
+
+            - name: Purge changelog cache on ceypay.io
+              run: |
+                  curl -fsS -X POST \
+                    "https://www.ceypay.io/api/revalidate-changelog?secret=${{ secrets.WEBSITE_REVALIDATE_SECRET }}"
