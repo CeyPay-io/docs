@@ -10,6 +10,7 @@ description: "Create and manage crypto payments through CeyPay. Accept USDT paym
 | POST   | `/v1/payment`      | Create a new payment | 100 req/min |
 | GET    | `/v1/payment/:id`  | Get payment details  | 300 req/min |
 | GET    | `/v1/payment/list` | List payments        | 200 req/min |
+| POST   | `/v1/payment/:id/refund` | Refund a paid payment | 30 req/min |
 
 ---
 
@@ -265,6 +266,96 @@ curl "https://api.ceypay.io/v1/payment/list?page=1&pageSize=20&status=PAID" \
   }
 }
 ```
+
+---
+
+## Refund Payment
+
+Refunds a `PAID` payment **in full** back to the customer through its original payment provider.
+
+```
+POST /v1/payment/:id/refund
+```
+
+- Supported across all three payment providers: **Binance Pay**, **Bybit Pay**, and **KuCoin Pay**.
+- Reverses the merchant ledger, decrements merchant revenue, reverses any `PENDING`/`ACCRUED` affiliate commission tied to the payment, and marks the payment `REFUNDED`.
+- If your unsettled balance (LKR and USDT) can't absorb the refund amount, the request fails with `422` and no refund record is created — an admin must record a fiat topup before you can retry.
+- Already-`PAID` affiliate commissions aren't clawed back automatically; CeyPay is notified for manual follow-up.
+- This endpoint is full-refund only — partial refunds aren't supported.
+
+### Path Parameters
+
+| Parameter | Type   | Description        |
+| --------- | ------ | ------------------- |
+| `id`      | string | Payment ID to refund |
+
+### Headers
+
+| Header             | Required | Description                                                                                                                    |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `Idempotency-Key`  | No       | Client-supplied key. Retrying the same request with the same key returns the original result instead of creating a duplicate refund. |
+
+### Request Body
+
+| Field    | Type   | Required | Description                                             |
+| -------- | ------ | -------- | --------------------------------------------------------- |
+| `reason` | string | No       | Refund reason (max 256 characters), forwarded to the payment provider |
+
+The body is optional — an empty `POST` is valid.
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/payment/550e8400-e29b-41d4-a716-446655440000/refund" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1705315800000" \
+  -H "x-signature: your_signature_here" \
+  -H "Idempotency-Key: refund-2026-07-22-001" \
+  -d '{
+    "reason": "Customer returned the goods"
+  }'
+```
+
+### Example Response (201 Created)
+
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440000",
+  "paymentId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "COMPLETED",
+  "provider": "BINANCE_PAY",
+  "amountUsdt": "98.50000000",
+  "amountLkr": "29550.00000000",
+  "grossAmountRefunded": "100.00000000",
+  "providerRefundId": "6963000019888888",
+  "reason": "Customer returned the goods",
+  "failureReason": null,
+  "requestedAt": "2026-07-22T10:15:30.000Z",
+  "completedAt": "2026-07-22T10:15:32.000Z",
+  "failedAt": null
+}
+```
+
+### Response Fields
+
+| Field                  | Type   | Description                                                                                                       |
+| ---------------------- | ------ | --------------------------------------------------------------------------------------------------------------- |
+| `status`               | string | Refund status: `PENDING`, `COMPLETED`, `FAILED`. `PENDING` means the provider accepted the refund but hasn't finalized it yet. |
+| `amountUsdt`/`amountLkr` | string | Net amount reversed (matches the payment's net settlement amount, not the gross amount the customer paid)        |
+| `grossAmountRefunded`  | string | Gross amount refunded to the customer at the provider                                                            |
+| `providerRefundId`     | string | Provider-side refund/transaction ID, `null` until known                                                          |
+
+### Error Responses
+
+| Status | Description                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------- |
+| 400    | Unknown payment provider, or the provider doesn't support refunds yet                            |
+| 403    | Payment does not belong to your merchant account                                                 |
+| 404    | Payment not found                                                                                  |
+| 409    | Payment is not `PAID`, or a refund for this payment already exists                                |
+| 422    | Insufficient unsettled balance to absorb the refund. Response includes `shortfallLkr`, `shortfallUsdt`, `merchantId`, `branchId` |
+| 429    | Rate limit exceeded (30 req/min)                                                                   |
 
 ---
 
