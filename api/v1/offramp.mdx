@@ -355,6 +355,7 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
   "bankRef": null,
   "completedAt": null,
   "failedAt": null,
+  "failureReason": null,
   "createdAt": "2026-05-28T10:00:45.000Z"
 }
 ```
@@ -372,6 +373,7 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
 | `bankRef` | string \| null | Bank transaction reference — available once `COMPLETED` |
 | `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
 | `failedAt` | string \| null | ISO 8601 timestamp when transfer failed |
+| `failureReason` | string \| null | Why the transfer failed — set only when `FAILED` |
 | `createdAt` | string | ISO 8601 timestamp when offramp was created |
 
 ---
@@ -412,9 +414,30 @@ curl "https://api.ceypay.io/v1/aggregator/offramp/c1d2e3f4-a5b6-4c7d-8e9f-001122
   "bankRef": "BOC-TX-123456",
   "completedAt": "2026-05-28T10:05:00.000Z",
   "failedAt": null,
+  "failureReason": null,
   "createdAt": "2026-05-28T10:00:45.000Z"
 }
 ```
+
+### Example Response (Failed)
+
+```json
+{
+  "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+  "status": "FAILED",
+  "amountUsdt": 1000.00,
+  "amountLkr": 295500.00,
+  "rateUsdtLkr": 295.50,
+  "externalRef": "withdrawal-9876543",
+  "bankRef": null,
+  "completedAt": null,
+  "failedAt": "2026-05-28T10:05:00.000Z",
+  "failureReason": "Invalid account number",
+  "createdAt": "2026-05-28T10:00:45.000Z"
+}
+```
+
+The response fields are the same as [Create Offramp](#create-offramp).
 
 ### Error Responses
 
@@ -432,7 +455,7 @@ curl "https://api.ceypay.io/v1/aggregator/offramp/c1d2e3f4-a5b6-4c7d-8e9f-001122
 | `PENDING` | Offramp created, queued for processing |
 | `PROCESSING` | Bank transfer in progress |
 | `COMPLETED` | Transfer settled — `bankRef` and `completedAt` are set |
-| `FAILED` | Transfer failed — `failedAt` is set; see webhook `failureReason` |
+| `FAILED` | Transfer failed — `failedAt` and `failureReason` are set; the LKR is credited back to your float |
 
 ---
 
