@@ -555,7 +555,11 @@ Two read-only endpoints are available for reconciling your float balance and off
 
 ## Float Balance Ledger Report
 
-Returns a paginated log of every LKR movement on your float (top-ups, offramp debits, and refunds) together with period summary statistics.
+Returns a paginated log of every LKR movement on your float (top-ups, offramp and bill payment debits, and refunds) together with period summary statistics.
+
+<Note>
+Your LKR float also funds [bill payments](/api/v1/bill-payment#aggregator-float-funding). Bill debits and refunds appear in this ledger with `billPaymentId` set.
+</Note>
 
 ```
 GET /v1/aggregator/report/ledger
@@ -612,6 +616,7 @@ curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&end
       "amountLkr": 295500.00,
       "balanceAfter": 500000.00,
       "aggregatorOfframpId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
+      "billPaymentId": null,
       "bankRef": null,
       "notes": null,
       "createdAt": "2026-05-28T10:00:45.000Z"
@@ -622,6 +627,7 @@ curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&end
       "amountLkr": 1000000.00,
       "balanceAfter": 795500.00,
       "aggregatorOfframpId": null,
+      "billPaymentId": null,
       "bankRef": "BOC-TOPUP-789",
       "notes": "May float top-up",
       "createdAt": "2026-05-02T08:00:00.000Z"
@@ -637,7 +643,7 @@ curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&end
 | `currentBalanceLkr` | number | Live float balance at the time of the request |
 | `totalCreditsLkr` | number | Sum of all `CREDIT` entries in the date window |
 | `totalDebitsLkr` | number | Sum of all `DEBIT` entries in the date window |
-| `totalRefundsLkr` | number | Sum of all `REFUND` entries (failed offramp reversals) in the date window |
+| `totalRefundsLkr` | number | Sum of all `REFUND` entries (failed offramp and bill payment reversals) in the date window |
 | `netMovementLkr` | number | `credits − debits + refunds` for the period |
 | `creditCount` | number | Number of credit entries |
 | `debitCount` | number | Number of debit entries |
@@ -650,10 +656,11 @@ curl "https://api.ceypay.io/v1/aggregator/report/ledger?startDate=2026-05-01&end
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string (UUID) | Ledger entry ID |
-| `type` | string | `CREDIT` (admin top-up), `DEBIT` (offramp charge), or `REFUND` (failed offramp reversal) |
+| `type` | string | `CREDIT` (admin top-up), `DEBIT` (offramp or bill payment charge), or `REFUND` (failed offramp or bill payment reversal) |
 | `amountLkr` | number | LKR amount of this entry |
 | `balanceAfter` | number | Float balance immediately after this entry was recorded |
-| `aggregatorOfframpId` | string \| null | Linked offramp ID — set on `DEBIT` and `REFUND` entries |
+| `aggregatorOfframpId` | string \| null | Linked offramp ID — set on offramp `DEBIT` and `REFUND` entries |
+| `billPaymentId` | string \| null | Linked bill payment ID — set on bill payment `DEBIT` and `REFUND` entries |
 | `bankRef` | string \| null | Bank transfer reference — set on `CREDIT` entries |
 | `notes` | string \| null | Optional notes added at the time of the entry |
 | `createdAt` | string | ISO 8601 timestamp |
@@ -783,6 +790,7 @@ curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&en
 ## Related Documentation
 
 - [Authentication](/api/v1/authentication) — HMAC signature details
+- [Bill Payment](/api/v1/bill-payment) — Pay bills and mobile reloads from your LKR float
 - [Webhooks](/api/v1/webhooks) — Signature verification and retry policy
 - [Rate Limits](/api/v1/rate-limits) — API rate limiting
 - [Errors](/api/v1/errors) — Error codes reference
