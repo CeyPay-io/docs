@@ -14,7 +14,7 @@ description: "Convert USDT to LKR and settle directly to a Sri Lankan bank accou
 | GET | `/v1/aggregator/quote` | Get a locked FX rate | 120 req/min |
 | POST | `/v1/aggregator/offramp` | Create an offramp (USDT → LKR transfer) | 60 req/min |
 | GET | `/v1/aggregator/offramp/:id` | Get offramp status | 300 req/min |
-| GET | `/v1/aggregator/report/ledger` | Float balance ledger reconciliation report | 60 req/min |
+| GET | `/v1/aggregator/report/ledger` | LKR float balance ledger reconciliation report | 60 req/min |
 | GET | `/v1/aggregator/report/offramp` | Offramp transaction reconciliation report | 60 req/min |
 
 <Warning>
@@ -36,10 +36,10 @@ The Offramp API is only available to merchants with the `AGGREGATOR` role. Conta
     Call `POST /v1/aggregator/user/:id/bank-account` to add a Sri Lankan bank account. Store the returned `userBankId`.
   </Step>
   <Step title="Lock an FX rate">
-    Call `GET /v1/aggregator/quote` with the USDT amount. The returned `fxLockId` is valid for 60 seconds.
+    Call `GET /v1/aggregator/quote` with the USDT amount. The returned `fxLockId` is valid for 60 seconds. Skip this step when you fund the offramp from your LKR float.
   </Step>
   <Step title="Initiate the transfer">
-    Call `POST /v1/aggregator/offramp` with the `fxLockId`, `userId`, and `userBankId`.
+    Call `POST /v1/aggregator/offramp` with the `userId` and `userBankId`, plus the `fxLockId` (USDT float, the default) or `amountLkr` and `"floatCurrency": "LKR"` (LKR float).
   </Step>
   <Step title="Poll status or receive webhook">
     Call `GET /v1/aggregator/offramp/:id` to check status, or provide a `webhookUrl` to receive `payment.completed` / `payment.failed` events.
@@ -260,6 +260,8 @@ curl "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440
 
 Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Use the returned `fxLockId` in `POST /v1/aggregator/offramp` before it expires.
 
+You need a quote for offramps funded from your USDT float (the default). LKR-float offramps (`"floatCurrency": "LKR"`) take `amountLkr` directly and reject an `fxLockId`.
+
 ```
 GET /v1/aggregator/quote
 ```
@@ -309,7 +311,7 @@ Submit the offramp before `expiresAt`. Expired or already-used `fxLockId` values
 
 ## Create Offramp
 
-Initiates a USDT → LKR bank transfer. This endpoint is idempotent on `externalRef` — submitting the same key twice returns the original offramp unchanged.
+Initiates an LKR bank transfer to an end-user, funded from your LKR float or your USDT float. This endpoint is idempotent on `externalRef` — submitting the same key twice returns the original offramp unchanged.
 
 ```
 POST /v1/aggregator/offramp
@@ -319,13 +321,35 @@ POST /v1/aggregator/offramp
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `fxLockId` | string (UUID) | Yes | Rate lock ID from `GET /v1/aggregator/quote` |
+| `floatCurrency` | string | No | Float to fund the offramp from: `USDT` (default) or `LKR` |
+| `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock ID from `GET /v1/aggregator/quote` |
+| `amountLkr` | number | When `floatCurrency` is `LKR` | LKR amount to send to the bank account (min 0.01, max 2 decimal places) |
 | `userId` | string (UUID) | Yes | End-user ID from `POST /v1/aggregator/user` |
 | `userBankId` | string (UUID) | Yes | Bank account ID from `POST /v1/aggregator/user/:id/bank-account` |
 | `externalRef` | string | Yes | Your idempotency key — must be unique per transfer (max 255 chars) |
 | `webhookUrl` | string | No | URL to receive `payment.completed` or `payment.failed` webhook |
 
-### Example Request
+### Float Selection
+
+You can hold two prefunded floats with CeyPay: an LKR float and a USDT float. Set `floatCurrency` to choose which one funds each offramp.
+
+| `floatCurrency` | You send | Amount debited | End-user receives |
+|-----------------|----------|----------------|-------------------|
+| `USDT` (default) | `fxLockId` | Quoted `amountUsdt`, from your USDT float | Quoted `amountLkr` |
+| `LKR` | `amountLkr` | `amountLkr`, from your LKR float | `amountLkr` |
+
+- LKR-float offramps need no FX quote: you state the LKR amount directly.
+- CeyPay rejects the request with `400` if you send `fxLockId` with the LKR float, or `amountLkr` with the USDT float.
+- If the selected float has insufficient balance, CeyPay rejects the request with `422`. A rejected request does not consume the `fxLockId`.
+- If the offramp fails, CeyPay returns the debited amount to the same float.
+
+<Warning>
+**Breaking change.** Offramps were previously always debited from your LKR float. Requests without `floatCurrency` are now debited from your USDT float. To keep using your LKR float, send `"floatCurrency": "LKR"` with `amountLkr` and no `fxLockId`.
+</Warning>
+
+To top up either float, contact [support@ceypay.io](mailto:support@ceypay.io).
+
+### Example Request (USDT float)
 
 ```bash
 curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
@@ -337,20 +361,58 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
     "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
     "userId": "550e8400-e29b-41d4-a716-446655440000",
     "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
+    "externalRef": "withdrawal-9876544",
+    "webhookUrl": "https://api.yourplatform.com/ceypay/webhook"
+  }'
+```
+
+### Example Response (USDT float)
+
+```json
+{
+  "paymentId": "d2e3f4a5-b6c7-4d8e-9f0a-112233445566",
+  "status": "PENDING",
+  "amountUsdt": 1000.00,
+  "amountLkr": 295500.00,
+  "rateUsdtLkr": 295.50,
+  "floatCurrency": "USDT",
+  "externalRef": "withdrawal-9876544",
+  "bankRef": null,
+  "completedAt": null,
+  "failedAt": null,
+  "failureReason": null,
+  "createdAt": "2026-05-28T10:00:45.000Z"
+}
+```
+
+### Example Request (LKR float)
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1748430000000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "floatCurrency": "LKR",
+    "amountLkr": 295500.00,
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
     "externalRef": "withdrawal-9876543",
     "webhookUrl": "https://api.yourplatform.com/ceypay/webhook"
   }'
 ```
 
-### Example Response
+### Example Response (LKR float)
 
 ```json
 {
   "paymentId": "c1d2e3f4-a5b6-4c7d-8e9f-001122334455",
   "status": "PENDING",
-  "amountUsdt": 1000.00,
+  "amountUsdt": null,
   "amountLkr": 295500.00,
-  "rateUsdtLkr": 295.50,
+  "rateUsdtLkr": null,
+  "floatCurrency": "LKR",
   "externalRef": "withdrawal-9876543",
   "bankRef": null,
   "completedAt": null,
@@ -366,9 +428,10 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
 |-------|------|-------------|
 | `paymentId` | string (UUID) | CeyPay's offramp ID — use this to poll status |
 | `status` | string | Current status (see [Offramp Status](#offramp-status)) |
-| `amountUsdt` | number | USDT amount debited |
+| `amountUsdt` | number \| null | Quoted USDT amount debited from your USDT float — `null` for LKR-float offramps |
 | `amountLkr` | number | LKR amount credited to the bank account |
-| `rateUsdtLkr` | number | Exchange rate applied |
+| `rateUsdtLkr` | number \| null | Quoted exchange rate — `null` for LKR-float offramps |
+| `floatCurrency` | string | Float the offramp was debited from: `LKR` or `USDT` |
 | `externalRef` | string | Your idempotency key |
 | `bankRef` | string \| null | Bank transaction reference — available once `COMPLETED` |
 | `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
@@ -410,6 +473,7 @@ curl "https://api.ceypay.io/v1/aggregator/offramp/c1d2e3f4-a5b6-4c7d-8e9f-001122
   "amountUsdt": 1000.00,
   "amountLkr": 295500.00,
   "rateUsdtLkr": 295.50,
+  "floatCurrency": "USDT",
   "externalRef": "withdrawal-9876543",
   "bankRef": "BOC-TX-123456",
   "completedAt": "2026-05-28T10:05:00.000Z",
@@ -428,6 +492,7 @@ curl "https://api.ceypay.io/v1/aggregator/offramp/c1d2e3f4-a5b6-4c7d-8e9f-001122
   "amountUsdt": 1000.00,
   "amountLkr": 295500.00,
   "rateUsdtLkr": 295.50,
+  "floatCurrency": "USDT",
   "externalRef": "withdrawal-9876543",
   "bankRef": null,
   "completedAt": null,
@@ -455,7 +520,7 @@ The response fields are the same as [Create Offramp](#create-offramp).
 | `PENDING` | Offramp created, queued for processing |
 | `PROCESSING` | Bank transfer in progress |
 | `COMPLETED` | Transfer settled — `bankRef` and `completedAt` are set |
-| `FAILED` | Transfer failed — `failedAt` and `failureReason` are set; the LKR is credited back to your float |
+| `FAILED` | Transfer failed — `failedAt` and `failureReason` are set; the debited amount is credited back to the float it came from |
 
 ---
 
@@ -537,10 +602,11 @@ Use a stable, meaningful key such as your internal withdrawal ID:
 
 | Status | Error | Description |
 |--------|-------|-------------|
-| 400 | Bad Request | Validation error, expired FX quote, or already-used `fxLockId` |
+| 400 | Bad Request | Validation error, expired FX quote, already-used `fxLockId`, or `fxLockId` / `amountLkr` sent with the wrong `floatCurrency` |
 | 401 | Unauthorized | Invalid API key or HMAC signature |
 | 403 | Forbidden | Offramp belongs to another merchant, or account lacks Aggregator access |
 | 404 | Not Found | Offramp not found |
+| 422 | Unprocessable Entity | Insufficient balance in the float selected by `floatCurrency` |
 | 429 | Too Many Requests | Rate limit exceeded |
 
 See [Error Codes](/api/v1/errors) for detailed error handling.
@@ -555,7 +621,11 @@ Two read-only endpoints are available for reconciling your float balance and off
 
 ## Float Balance Ledger Report
 
-Returns a paginated log of every LKR movement on your float (top-ups, offramp debits, and refunds) together with period summary statistics.
+Returns a paginated log of every movement on your LKR float (top-ups, offramp debits, and refunds) together with period summary statistics.
+
+<Note>
+This report covers the LKR float only. USDT float movements are not included yet.
+</Note>
 
 ```
 GET /v1/aggregator/report/ledger
@@ -726,6 +796,7 @@ curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&en
       "amountUsdt": 1000.00,
       "amountLkr": 295500.00,
       "rateUsdtLkr": 295.50,
+      "floatCurrency": "USDT",
       "bankRef": "BOC-TX-123456",
       "failureReason": null,
       "externalUserId": "usr_1234567890",
@@ -746,17 +817,17 @@ curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&en
 |-------|------|-------------|
 | `totalCount` | number | Total offramps in the date window (all statuses) |
 | `totalAmountLkr` | number | Sum of `amountLkr` across all statuses in the window |
-| `totalAmountUsdt` | number | Sum of `amountUsdt` across all statuses in the window |
+| `totalAmountUsdt` | number | Sum of `amountUsdt` across all statuses in the window (USDT-float offramps only) |
 | `completedCount` | number | Number of `COMPLETED` offramps |
 | `completedAmountLkr` | number | LKR total for completed offramps |
-| `completedAmountUsdt` | number | USDT total for completed offramps |
+| `completedAmountUsdt` | number | USDT total for completed USDT-float offramps |
 | `pendingCount` | number | Number of `PENDING` offramps |
 | `pendingAmountLkr` | number | LKR total for pending offramps |
 | `processingCount` | number | Number of `PROCESSING` offramps |
 | `processingAmountLkr` | number | LKR total for processing offramps |
 | `failedCount` | number | Number of `FAILED` offramps |
-| `failedAmountLkr` | number | LKR amount returned to float via refunds |
-| `averageRateUsdtLkr` | number | Weighted average USDT/LKR rate for `COMPLETED` offramps only |
+| `failedAmountLkr` | number | LKR value of failed offramps — the debited amount is returned to the float that funded each one |
+| `averageRateUsdtLkr` | number | Weighted average USDT/LKR rate for `COMPLETED` USDT-float offramps only |
 
 ### Offramp Item Fields
 
@@ -765,9 +836,10 @@ curl "https://api.ceypay.io/v1/aggregator/report/offramp?startDate=2026-05-01&en
 | `paymentId` | string (UUID) | CeyPay offramp ID |
 | `externalRef` | string | Your idempotency key |
 | `status` | string | Current status (see [Offramp Status](#offramp-status)) |
-| `amountUsdt` | number | USDT amount |
+| `amountUsdt` | number \| null | Quoted USDT amount — `null` for LKR-float offramps |
 | `amountLkr` | number | LKR amount |
-| `rateUsdtLkr` | number | Exchange rate applied |
+| `rateUsdtLkr` | number \| null | Quoted exchange rate — `null` for LKR-float offramps |
+| `floatCurrency` | string | Float the offramp was debited from: `LKR` or `USDT` |
 | `bankRef` | string \| null | Bank transaction reference — set when `COMPLETED` |
 | `failureReason` | string \| null | Failure description — set when `FAILED` |
 | `externalUserId` | string | Your internal user ID for the end-user |
