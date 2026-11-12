@@ -1,0 +1,626 @@
+---
+title: "Bill Payment API"
+description: "Let your customers pay Sri Lankan bills and mobile reloads in crypto. CeyPay pays the biller in LKR."
+---
+
+## Overview
+
+The Bill Payment API lets your customers pay Sri Lankan bills and top up mobile numbers with USDT (Tether stablecoin). You create a bill payment, show the customer a QR code or checkout link, and CeyPay pays the biller in LKR once the customer pays.
+
+Aggregator accounts pay bills from their prefunded LKR float instead. No customer payment is involved. See [Aggregator Float Funding](#aggregator-float-funding).
+
+Supported biller categories:
+
+| Category | Examples |
+|----------|----------|
+| `MOBILE` | Prepaid mobile reloads |
+| `MOBILEWALLET` | Mobile wallet top-ups |
+| `FIXEDLINE` | Fixed-line telephone bills |
+| `TELEVISION` | TV subscriptions |
+| `UTILITIES` | Electricity, water |
+| `INSURANCE` | Insurance premiums |
+| `FINANCE` | Loan and finance repayments |
+| `TAXI` | Taxi wallet top-ups |
+
+## Endpoints
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| GET | `/v1/bill/billers` | List billers you can pay | 300 req/min |
+| POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
+| POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
+| GET | `/v1/bill/payment` | List your bill payments | 200 req/min |
+| GET | `/v1/bill/payment/:id` | Get a bill payment | 300 req/min |
+
+<Warning>
+Bill payments must be enabled on your account. Requests from accounts without access return `403`. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable bill payments.
+</Warning>
+
+## Authentication
+
+Every endpoint requires [HMAC authentication](/api/v1/authentication) with these headers:
+
+- `x-api-key`: Your API key ID only (for example, `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using the derived signing key)
+
+## How It Works
+
+<Steps>
+  <Step title="Find the biller">
+    Call `GET /v1/bill/billers` and take the biller's `code`. Don't hardcode biller codes — the list can change.
+  </Step>
+  <Step title="Check the account (optional)">
+    Call `POST /v1/bill/check` to confirm the account exists and see the account holder and amount due. For mobile reloads, pass `amount` to see which package it buys.
+  </Step>
+  <Step title="Create the bill payment">
+    Call `POST /v1/bill/payment` with the biller code, account number, LKR amount, and the payment provider your customer uses. Store the returned `billPaymentId`.
+  </Step>
+  <Step title="Show the checkout to your customer">
+    Display `checkout.qrContent` as a QR code, or send the customer to `checkout.checkoutLink`. The customer pays the USDT amount in Bybit, Binance Pay, or KuCoin before `checkout.expireTime`.
+  </Step>
+  <Step title="Track the result">
+    CeyPay pays the biller after the customer pays. Receive a `bill.status_changed` webhook on your `webhookUrl`, or poll `GET /v1/bill/payment/:id`.
+  </Step>
+</Steps>
+
+---
+
+## List Billers
+
+Returns the billers and mobile operators you can pay, with the account format and LKR limits for each.
+
+```
+GET /v1/bill/billers
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | No | Filter by category: `MOBILE`, `MOBILEWALLET`, `FIXEDLINE`, `TELEVISION`, `UTILITIES`, `INSURANCE`, `FINANCE`, `TAXI` |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/billers?category=MOBILE" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "code": "MOBP",
+      "name": "Mobitel Prepaid",
+      "category": "MOBILE",
+      "accountLabel": "Mobile number",
+      "accountRegex": "^07[0-9]{8}$",
+      "minAmount": 50,
+      "maxAmount": 10000
+    }
+  ]
+}
+```
+
+### Biller Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | string | Biller code — pass it as `billerCode` in other requests |
+| `name` | string | Biller display name |
+| `category` | string | Biller category |
+| `accountLabel` | string | What to call the account field in your UI: `Mobile number` or `Account number` |
+| `accountRegex` | string \| null | Pattern the account number must match, or `null` for free-form account numbers |
+| `minAmount` | number \| null | Minimum payment in whole LKR, or `null` for no minimum |
+| `maxAmount` | number \| null | Maximum payment in whole LKR, or `null` for no maximum |
+
+---
+
+## Check Account
+
+Validates an account with the biller before you create a payment. Returns the account holder and the amount due or balance, where the biller supports lookups.
+
+```
+POST /v1/bill/check
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/billers` |
+| `accountNumber` | string | Yes | Mobile or account number (letters, digits, `/` and `-`; max 50 chars) |
+| `amount` | integer | No | Mobile reloads only: amount in whole LKR, to see which package it buys |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/bill/check" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "billerCode": "MOBP",
+    "accountNumber": "0711234567",
+    "amount": 299
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "billerCode": "MOBP",
+  "billerName": "Mobitel Prepaid",
+  "accountHolderName": null,
+  "balance": "0",
+  "supported": true,
+  "package": {
+    "name": "Anytime Data 299",
+    "availability": "Available",
+    "dataBundle": "6GB",
+    "callsBundle": null,
+    "smsBundle": null,
+    "validityDays": "30"
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `billerCode` | string | Biller code you sent |
+| `billerName` | string \| null | Biller name |
+| `accountHolderName` | string \| null | Account holder, when the biller returns it |
+| `balance` | string | Amount due for bills, or the account balance the biller reports. `"0"` when unknown |
+| `supported` | boolean | `false` if the biller can't serve this account — don't create a payment for it |
+| `package` | object | Mobile reloads with `amount` only: what that amount buys |
+
+<Note>
+Some billers, such as TV providers, don't support account lookups. For these, CeyPay checks only the account number format and returns `supported: true` with no account holder.
+</Note>
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid account number for this biller |
+| 404 | Unknown biller, or account not found |
+
+---
+
+## Create Bill Payment
+
+Creates the crypto payment that funds a bill or reload. Show the customer the returned `checkout`. Once the customer pays, CeyPay pays the biller.
+
+```
+POST /v1/bill/payment
+```
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Idempotency-Key` | No | Your retry key (max 128 chars). See [Idempotency](#idempotency) |
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/billers` |
+| `accountNumber` | string | Yes | Mobile or account number to reload or pay (letters, digits, `/` and `-`; max 50 chars) |
+| `amount` | integer | Yes | Amount in whole LKR — no cents. Must be within the biller's `minAmount` and `maxAmount` |
+| `provider` | string | Merchants only | Payment provider your customer pays with: `BYBIT`, `BINANCE`, or `KUCOIN`. Required for merchant accounts. Aggregator accounts must omit it |
+| `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
+| `customerBilling` | object | No | The paying customer. Shown on receipts and to CeyPay support. See below |
+| `merchantTradeNo` | string | No | Your own reference, unique per merchant (max 64 chars) |
+| `webhookUrl` | string | No | HTTPS URL that receives `bill.status_changed` webhooks (max 2048 chars) |
+
+**`customerBilling` fields** — when you send `customerBilling`, include `firstName`, `lastName`, `email`, and `phone`:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `firstName` | string | Yes | Customer first name |
+| `lastName` | string | Yes | Customer last name |
+| `email` | string | Yes | Customer email |
+| `phone` | string | Yes | Customer phone, for example `+94771234567` |
+| `address` | string | No | Street address |
+| `city` | string | No | City |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/bill/payment" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here" \
+  -H "Idempotency-Key: order-10025" \
+  -d '{
+    "billerCode": "MOBP",
+    "accountNumber": "0711234567",
+    "amount": 500,
+    "provider": "BINANCE",
+    "receiptMobile": "0711234567",
+    "merchantTradeNo": "ORDER-10025",
+    "webhookUrl": "https://merchant.example.com/webhooks/ceypay-bill"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "billPaymentId": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+  "merchantTradeNo": "ORDER-10025",
+  "status": "AWAITING_PAYMENT",
+  "fundingSource": "QR",
+  "biller": {
+    "code": "MOBP",
+    "name": "Mobitel Prepaid",
+    "category": "MOBILE"
+  },
+  "accountNumber": "0711234567",
+  "amountLkr": 500,
+  "amountUsdt": "1.66",
+  "payProvider": "BINANCE_PAY",
+  "paymentNo": "CP20261112100000A1B2",
+  "reference": null,
+  "refund": null,
+  "checkout": {
+    "qrContent": "https://app.binance.com/qr/dplk...",
+    "checkoutLink": "https://pay.binance.com/checkout/...",
+    "deepLink": "bnc://app.binance.com/payment/secpay?...",
+    "expireTime": "2026-11-12T10:15:00.000Z"
+  },
+  "paidAt": null,
+  "completedAt": null,
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `billPaymentId` | string (UUID) | CeyPay bill payment ID — use this to poll status |
+| `merchantTradeNo` | string \| null | Your reference |
+| `status` | string | Current status (see [Bill Payment Status](#bill-payment-status)) |
+| `fundingSource` | string | `QR` (customer paid in crypto) or `AGGREGATOR_FLOAT` (paid from your LKR float) |
+| `biller` | object | `code`, `name`, and `category` of the biller |
+| `accountNumber` | string | Account being paid |
+| `amountLkr` | number | LKR amount CeyPay pays the biller |
+| `amountUsdt` | string \| null | USDT amount the customer pays, as a decimal string. `null` for float-funded bills |
+| `payProvider` | string \| null | Payment provider: `BYBIT_PAY`, `BINANCE_PAY`, or `KUCOIN_PAY`. `null` for float-funded bills |
+| `paymentNo` | string \| null | CeyPay payment number — quote it when you contact support. `null` for float-funded bills |
+| `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
+| `refund` | object \| null | Refund of the customer's USDT after a biller failure (see [Refunds](#refunds)) |
+| `checkout` | object | Present only while `AWAITING_PAYMENT` (see below) |
+| `paidAt` | string \| null | ISO 8601 timestamp when the customer paid, or when CeyPay debited your float |
+| `completedAt` | string \| null | ISO 8601 timestamp when the biller confirmed payment |
+| `createdAt` | string | ISO 8601 timestamp when the bill payment was created |
+
+**`checkout` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `qrContent` | string \| null | Render this as a QR code for the customer to scan |
+| `checkoutLink` | string \| null | Payment provider's hosted checkout page |
+| `deepLink` | string \| null | Opens the payment provider's app directly on mobile |
+| `expireTime` | string \| null | ISO 8601 timestamp after which the checkout expires |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid request, `amount` outside the biller's limits, or `provider` missing (merchants) / sent (aggregators) |
+| 404 | Unknown biller |
+| 409 | `merchantTradeNo` already used |
+| 422 | `Idempotency-Key` reused with a different request body, or insufficient float balance (aggregators) |
+| 503 | Bill payments temporarily unavailable |
+
+### Idempotency
+
+Send an `Idempotency-Key` header to retry a create request safely:
+
+- **Same key, same body**: CeyPay returns the original bill payment. No second payment is created.
+- **Same key, different body**: CeyPay rejects the request with `422`.
+
+Use a stable value such as your internal order ID. `merchantTradeNo` also prevents duplicates, but a repeated `merchantTradeNo` returns `409` instead of the original bill payment.
+
+---
+
+## Get Bill Payment
+
+Returns a single bill payment. Use it to poll status.
+
+```
+GET /v1/bill/payment/:id
+```
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string (UUID) | `billPaymentId` from Create Bill Payment |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/payment/6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (Completed)
+
+```json
+{
+  "billPaymentId": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+  "merchantTradeNo": "ORDER-10025",
+  "status": "COMPLETED",
+  "fundingSource": "QR",
+  "biller": {
+    "code": "MOBP",
+    "name": "Mobitel Prepaid",
+    "category": "MOBILE"
+  },
+  "accountNumber": "0711234567",
+  "amountLkr": 500,
+  "amountUsdt": "1.66",
+  "payProvider": "BINANCE_PAY",
+  "paymentNo": "CP20261112100000A1B2",
+  "reference": "MR-884213",
+  "refund": null,
+  "paidAt": "2026-11-12T10:02:10.000Z",
+  "completedAt": "2026-11-12T10:02:40.000Z",
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+The response fields match [Create Bill Payment](#response-fields). `checkout` appears only while the status is `AWAITING_PAYMENT`.
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | `id` is not a valid UUID |
+| 404 | Bill payment not found, or it belongs to another merchant |
+
+---
+
+## List Bill Payments
+
+Returns your bill payments, newest first. List items don't include `checkout`.
+
+```
+GET /v1/bill/payment
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | integer | No | Page number (default: 1) |
+| `pageSize` | integer | No | Items per page (default: 20, max: 100) |
+| `merchantTradeNo` | string | No | Filter by your reference |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/payment?page=1&pageSize=20" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "billPaymentId": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+      "merchantTradeNo": "ORDER-10025",
+      "status": "COMPLETED",
+      "fundingSource": "QR",
+      "biller": {
+        "code": "MOBP",
+        "name": "Mobitel Prepaid",
+        "category": "MOBILE"
+      },
+      "accountNumber": "0711234567",
+      "amountLkr": 500,
+      "amountUsdt": "1.66",
+      "payProvider": "BINANCE_PAY",
+      "paymentNo": "CP20261112100000A1B2",
+      "reference": "MR-884213",
+      "refund": null,
+      "paidAt": "2026-11-12T10:02:10.000Z",
+      "completedAt": "2026-11-12T10:02:40.000Z",
+      "createdAt": "2026-11-12T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+## Bill Payment Status
+
+| Status | Description |
+|--------|-------------|
+| `AWAITING_PAYMENT` | Bill payment created. Waiting for the customer to pay |
+| `PROCESSING` | Customer paid. CeyPay is paying the biller |
+| `COMPLETED` | Biller confirmed the payment — `reference` and `completedAt` are set |
+| `FAILED` | Customer payment failed, or the biller rejected the payment after the customer paid |
+| `EXPIRED` | Customer didn't pay before `checkout.expireTime` |
+
+```
+AWAITING_PAYMENT → PROCESSING → COMPLETED
+       │                │
+       ├→ EXPIRED       └→ FAILED (customer's USDT refunded)
+       └→ FAILED
+```
+
+## Refunds
+
+If the biller rejects the payment after the customer paid, the status moves to `FAILED` and CeyPay refunds the customer's USDT automatically. For float-funded bills, CeyPay returns the LKR to your float instead (see [Aggregator Float Funding](#aggregator-float-funding)). The `refund` object tracks the latest refund attempt:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `PENDING`, `COMPLETED`, or `FAILED` |
+| `completedAt` | string \| null | ISO 8601 timestamp when the refund completed |
+| `failedAt` | string \| null | ISO 8601 timestamp when the refund failed |
+
+`refund` stays `null` when no refund was needed. If a refund fails, CeyPay support resolves it manually.
+
+---
+
+## Aggregator Float Funding
+
+Aggregator accounts pay bills from their prefunded LKR float. Your end-user doesn't make a crypto payment, and CeyPay charges no fee: the float is debited exactly the bill `amount`. This is the same LKR float that funds your [offramps](/api/v1/offramp).
+
+<Note>
+Float funding applies automatically to accounts with the `AGGREGATOR` role. Merchant accounts always use QR funding. To top up your float, contact [support@ceypay.io](mailto:support@ceypay.io).
+</Note>
+
+### How It Differs
+
+| | Merchant account | Aggregator account |
+|---|---|---|
+| `provider` | Required | Must be omitted |
+| Paid by | Your customer, in USDT via QR | Your LKR float, debited when you create the bill |
+| `checkout` | Returned while `AWAITING_PAYMENT` | Never returned |
+| Initial `status` | `AWAITING_PAYMENT` | `PROCESSING` — CeyPay sends the bill to the biller immediately |
+| Insufficient funds | — | `422`, and no bill payment is created |
+| Biller failure | Customer's USDT refunded | LKR returned to your float |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/bill/payment" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here" \
+  -H "Idempotency-Key: bill-77120" \
+  -d '{
+    "billerCode": "CEBB",
+    "accountNumber": "1234567890",
+    "amount": 4850,
+    "merchantTradeNo": "BILL-77120",
+    "webhookUrl": "https://api.yourplatform.com/ceypay/bill-webhook"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "billPaymentId": "8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "merchantTradeNo": "BILL-77120",
+  "status": "PROCESSING",
+  "fundingSource": "AGGREGATOR_FLOAT",
+  "biller": {
+    "code": "CEBB",
+    "name": "Ceylon Electricity Board",
+    "category": "UTILITIES"
+  },
+  "accountNumber": "1234567890",
+  "amountLkr": 4850,
+  "amountUsdt": null,
+  "payProvider": null,
+  "paymentNo": null,
+  "reference": null,
+  "refund": null,
+  "paidAt": "2026-11-12T10:00:00.000Z",
+  "completedAt": null,
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+### Float Movements
+
+Each float-funded bill appears in your [Float Balance Ledger Report](/api/v1/offramp#float-balance-ledger-report) with its `billPaymentId`:
+
+- **`DEBIT`** when you create the bill
+- **`REFUND`** if the biller fails it — the full amount returns to your float, and the bill's `refund.status` becomes `COMPLETED`
+
+A retry with the same `Idempotency-Key` returns the original bill without debiting your float again. A rejected request (`400`, `409`, `422`) never debits your float.
+
+---
+
+## Webhooks
+
+Set `webhookUrl` when you create a bill payment to receive `bill.status_changed` events. CeyPay sends one when:
+
+- The bill payment reaches a final status: `COMPLETED`, `FAILED`, or `EXPIRED`
+- A refund of the customer's USDT completes or fails
+
+### Payload
+
+```json
+{
+  "event": "bill.status_changed",
+  "billPaymentId": "6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f",
+  "merchantTradeNo": "ORDER-10025",
+  "status": "COMPLETED",
+  "billerCode": "MOBP",
+  "accountNumber": "0711234567",
+  "amountLkr": 500,
+  "reference": "MR-884213",
+  "refund": null,
+  "timestamp": "2026-11-12T10:02:41.000Z"
+}
+```
+
+### Payload Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `bill.status_changed` |
+| `billPaymentId` | string (UUID) | CeyPay bill payment ID |
+| `merchantTradeNo` | string \| null | Your reference |
+| `status` | string | Current status (see [Bill Payment Status](#bill-payment-status)) |
+| `billerCode` | string | Biller code |
+| `accountNumber` | string | Account paid |
+| `amountLkr` | number | LKR amount |
+| `reference` | string \| null | Biller's transaction reference — set when `COMPLETED` |
+| `refund` | object \| null | Latest refund state (see [Refunds](#refunds)) |
+| `timestamp` | string | ISO 8601 timestamp when CeyPay sent the event |
+
+A failed bill can produce two webhooks with `status: "FAILED"`: one when the biller fails, and one when the refund finalizes. Check `refund.status` to tell them apart. If the refund completes immediately, CeyPay sends a single webhook. Float-funded bills get a single `FAILED` webhook, sent after CeyPay returns the LKR to your float, so `refund.status` is already `COMPLETED`.
+
+Bill webhooks use the same ED25519 signature headers and retry policy as payment webhooks. See [Webhooks](/api/v1/webhooks) for signature verification and retries.
+
+---
+
+## Error Responses
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, or `provider` missing / sent for your account type |
+| 401 | Unauthorized | Invalid API key, timestamp, or HMAC signature |
+| 403 | Forbidden | Account inactive, or bill payments not enabled |
+| 404 | Not Found | Unknown biller, account not found, or bill payment not found |
+| 409 | Conflict | `merchantTradeNo` already used |
+| 422 | Unprocessable Entity | `Idempotency-Key` reused with a different request body, or insufficient float balance |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 503 | Service Unavailable | Bill payments temporarily unavailable |
+
+See [Error Codes](/api/v1/errors) for detailed error handling.
