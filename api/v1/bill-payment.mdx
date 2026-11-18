@@ -26,7 +26,7 @@ Supported biller categories:
 
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
-| GET | `/v1/bill/billers` | List billers you can pay | 300 req/min |
+| GET | `/v1/bill/list` | List billers you can pay | 300 req/min |
 | POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
 | POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
 | GET | `/v1/bill/payment/list` | List your bill payments | 200 req/min |
@@ -48,7 +48,7 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
 
 <Steps>
   <Step title="Find the biller">
-    Call `GET /v1/bill/billers` and take the biller's `code`. Don't hardcode biller codes — the list can change.
+    Call `GET /v1/bill/list` and take the biller's `code`. Don't hardcode biller codes — the list can change.
   </Step>
   <Step title="Check the account (optional)">
     Call `POST /v1/bill/check` to confirm the account exists and see the account holder and amount due. For mobile reloads, pass `amount` to see which package it buys.
@@ -68,7 +68,7 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
 Returns the billers and mobile operators you can pay, with the account format and LKR limits for each.
 
 ```
-GET /v1/bill/billers
+GET /v1/bill/list
 ```
 
 ### Query Parameters
@@ -80,7 +80,7 @@ GET /v1/bill/billers
 ### Example Request
 
 ```bash
-curl "https://api.ceypay.io/v1/bill/billers?category=UTILITIES" \
+curl "https://api.ceypay.io/v1/bill/list?category=UTILITIES" \
   -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1762934400000" \
   -H "x-signature: your_signature_here"
@@ -130,7 +130,7 @@ POST /v1/bill/check
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `billerCode` | string | Yes | Biller code from `GET /v1/bill/billers` |
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/list` |
 | `accountNumber` | string | Yes | Mobile or account number (letters, digits, `/` and `-`; max 50 chars) |
 | `amount` | integer | No | Mobile reloads only: amount in whole LKR, to see which package it buys |
 
@@ -211,7 +211,7 @@ POST /v1/bill/payment
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `billerCode` | string | Yes | Biller code from `GET /v1/bill/billers` |
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/list` |
 | `accountNumber` | string | Yes | Mobile or account number to reload or pay (letters, digits, `/` and `-`; max 50 chars) |
 | `amount` | integer | Yes | Amount in whole LKR — no cents. Must be within the biller's `minAmount` and `maxAmount` |
 | `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
