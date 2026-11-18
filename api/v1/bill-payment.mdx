@@ -5,9 +5,14 @@ description: "Pay Sri Lankan bills and mobile reloads from your prefunded LKR fl
 
 ## Overview
 
-The Bill Payment API lets aggregators pay Sri Lankan bills and top up mobile numbers from their prefunded LKR float. You create a bill payment, and CeyPay debits your float and pays the biller in LKR. Your end-user doesn't make a payment to CeyPay.
+The Bill Payment API lets aggregators pay Sri Lankan bills and top up mobile numbers from a prefunded float. You create a bill payment, and CeyPay debits your float and pays the biller in LKR. Your end-user doesn't make a payment to CeyPay.
 
-This is the same LKR float that funds your [offramps](/api/v1/offramp). CeyPay charges no fee: your float is debited exactly the bill `amount`.
+These are the same floats that fund your [offramps](/api/v1/offramp). The biller is always paid in LKR; `floatCurrency` decides what pays for it:
+
+- **`LKR`** — the bill's amount comes straight off your LKR float. No conversion and no quote.
+- **`USDT`** — you lock a rate with `GET /v1/bill/quote` and pass the `fxLockId`; the quoted USDT comes off your USDT float.
+
+CeyPay charges no fee either way.
 
 Supported biller categories:
 
@@ -27,13 +32,14 @@ Supported biller categories:
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
 | GET | `/v1/bill/list` | List billers you can pay | 300 req/min |
+| GET | `/v1/bill/quote` | Lock a rate to pay from your USDT float | 120 req/min |
 | POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
 | POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
 | GET | `/v1/bill/payment/list` | List your bill payments | 200 req/min |
 | GET | `/v1/bill/payment/:id` | Get a bill payment | 300 req/min |
 
 <Warning>
-The Bill Payment API is only available to merchants with the `AGGREGATOR` role, with bill payments enabled. Requests from accounts without access return `403`. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable bill payments or top up your float.
+The Bill Payment API is only available to merchants with the `AGGREGATOR` role, with bill payments enabled. Requests from accounts without access return `403`. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable bill payments or top up either float.
 </Warning>
 
 ## Authentication
@@ -53,11 +59,14 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
   <Step title="Check the account (optional)">
     Call `POST /v1/bill/check` to confirm the account exists and see the account holder and amount due. For mobile reloads, pass `amount` to see which package it buys.
   </Step>
+  <Step title="Lock a rate (USDT float only)">
+    Paying from your USDT float? Call `GET /v1/bill/quote` with the bill's LKR amount to see what it costs in USDT, and keep the `fxLockId`. Skip this step entirely when paying from your LKR float.
+  </Step>
   <Step title="Create the bill payment">
-    Call `POST /v1/bill/payment` with the biller code, account number, and LKR amount. CeyPay debits your float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
+    Call `POST /v1/bill/payment` with the biller code, account number, LKR amount and `floatCurrency` — plus the `fxLockId` if you are paying in USDT. CeyPay debits that float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
   </Step>
   <Step title="Track the result">
-    Receive a `bill.status_changed` webhook on your `webhookUrl`, or poll `GET /v1/bill/payment/:id`. If the biller fails the payment, CeyPay returns the LKR to your float.
+    Receive a `bill.status_changed` webhook on your `webhookUrl`, or poll `GET /v1/bill/payment/:id`. If the biller fails the payment, CeyPay returns exactly what it debited to the float it came from.
   </Step>
 </Steps>
 
@@ -193,9 +202,64 @@ Some billers, such as TV providers, don't support account lookups. For these, Ce
 
 ---
 
+## Get a Quote
+
+Locks the USDT/LKR rate for a bill of a given LKR amount, for 60 seconds. Pass the returned `fxLockId` to `POST /v1/bill/payment` with `"floatCurrency": "USDT"`, and that USDT is what comes off your float however the rate moves in between.
+
+You only need this when paying from your USDT float. LKR-float bills take no quote.
+
+```
+GET /v1/bill/quote
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `amount` | integer | Yes | The bill amount you intend to pay, in whole LKR |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/quote?amount=4850" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
+  "rateUsdtLkr": 295.50,
+  "amountLkr": 4850.00,
+  "amountUsdt": 16.41285280,
+  "expiresAt": "2026-11-12T10:01:00.000Z"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/bill/payment` |
+| `rateUsdtLkr` | number | Locked USDT/LKR rate |
+| `amountLkr` | number | The bill amount you asked about |
+| `amountUsdt` | number | What that bill costs in USDT at the locked rate, rounded up to 8 decimal places |
+| `expiresAt` | string | When the lock expires — 60 seconds from issuance (ISO 8601) |
+
+<Warning>
+A lock is **single-use** and tied to the amount it quoted. Spending it on a bill of a different amount is rejected with `400`, as is reusing one that is already spent or expired. Request a fresh quote if it expires before you submit.
+
+Bill quotes and [offramp quotes](/api/v1/offramp#get-a-quote) are not interchangeable: they price opposite directions, so a lock taken for one cannot be spent on the other.
+</Warning>
+
+---
+
 ## Create Bill Payment
 
-Pays a bill or reload from your LKR float. CeyPay debits your float and sends the payment to the biller in the same request.
+Pays a bill or reload from one of your floats. CeyPay debits that float and sends the payment to the biller in the same request. The biller is paid in LKR whichever float you use.
 
 ```
 POST /v1/bill/payment
@@ -215,8 +279,19 @@ POST /v1/bill/payment
 | `accountNumber` | string | Yes | Mobile or account number to reload or pay (letters, digits, `/` and `-`; max 50 chars) |
 | `amount` | integer | Yes | Amount in whole LKR — no cents. Must be within the biller's `minAmount` and `maxAmount` |
 | `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
+| `floatCurrency` | string | **Yes** | Which float pays: `LKR` or `USDT`. There is no default — every request states the float it spends |
+| `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock from `GET /v1/bill/quote`. Its quoted LKR must equal this bill's `amount`. Rejected for the LKR float |
 | `merchantTradeNo` | string | No | Your own reference, unique per account (max 64 chars) |
 | `webhookUrl` | string | No | HTTPS URL that receives `bill.status_changed` webhooks (max 2048 chars) |
+
+### Choosing a float
+
+| `floatCurrency` | You send | Debited from your float | Biller receives |
+|---|---|---|---|
+| `LKR` | nothing extra | the bill's `amount` | that `amount` |
+| `USDT` | `fxLockId` | the quoted `amountUsdt` | the bill's `amount` in LKR |
+
+Sending `fxLockId` with the LKR float is rejected with `400`, as is omitting it with the USDT float. A rejected request debits nothing, creates nothing, and leaves the rate lock unspent.
 
 <Note>
 Don't send `provider`. Bills are paid from your float, so requests that include it return `400`.
@@ -235,6 +310,7 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
     "billerCode": "CEBB",
     "accountNumber": "1234567890",
     "amount": 4850,
+    "floatCurrency": "LKR",
     "merchantTradeNo": "BILL-77120",
     "webhookUrl": "https://api.yourplatform.com/ceypay/bill-webhook"
   }'
@@ -255,6 +331,9 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
   },
   "accountNumber": "1234567890",
   "amountLkr": 4850,
+  "floatCurrency": "LKR",
+  "floatAmount": "4850.00",
+  "exchangeRate": null,
   "reference": null,
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -273,7 +352,10 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 | `fundingSource` | string | Always `AGGREGATOR_FLOAT` |
 | `biller` | object | `code`, `name`, and `category` of the biller |
 | `accountNumber` | string | Account being paid |
-| `amountLkr` | number | LKR amount debited from your float and paid to the biller |
+| `amountLkr` | number | LKR paid to the biller |
+| `floatCurrency` | string | Which float paid: `LKR` or `USDT` |
+| `floatAmount` | string | What was taken from that float — the bill's LKR for the LKR float, the quoted USDT for the USDT float |
+| `exchangeRate` | number \| null | The USDT/LKR rate your lock fixed; `null` for an LKR-float bill |
 | `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
 | `refund` | object \| null | Return of the LKR to your float after a biller failure (see [Refunds](#refunds)) |
 | `paidAt` | string | ISO 8601 timestamp when CeyPay debited your float |
@@ -284,10 +366,10 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 
 | Status | Description |
 |--------|-------------|
-| 400 | Invalid request, `amount` outside the biller's limits, or `provider` sent |
+| 400 | Invalid request, `amount` outside the biller's limits, `provider` sent, or an `fxLockId` that is missing, expired, already used, or quoted for a different amount |
 | 404 | Unknown biller |
 | 409 | `merchantTradeNo` already used |
-| 422 | Insufficient float balance, or `Idempotency-Key` reused with a different request body |
+| 422 | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
 | 503 | Bill payments temporarily unavailable |
 
 A rejected request never debits your float, and no bill payment is created.
@@ -296,7 +378,7 @@ A rejected request never debits your float, and no bill payment is created.
 
 Send an `Idempotency-Key` header to retry a create request safely:
 
-- **Same key, same body**: CeyPay returns the original bill payment without debiting your float again.
+- **Same key, same body**: CeyPay returns the original bill payment without debiting your float again. A retry may carry a **fresh** `fxLockId` — locks expire in 60 seconds, so it is not part of what makes a request "the same", and the new lock stays unspent.
 - **Same key, different body**: CeyPay rejects the request with `422`.
 
 Use a stable value such as your internal transaction ID. `merchantTradeNo` also prevents duplicates, but a repeated `merchantTradeNo` returns `409` instead of the original bill payment.
@@ -341,6 +423,9 @@ curl "https://api.ceypay.io/v1/bill/payment/8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
   },
   "accountNumber": "1234567890",
   "amountLkr": 4850,
+  "floatCurrency": "LKR",
+  "floatAmount": "4850.00",
+  "exchangeRate": null,
   "reference": "CEB-884213",
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -402,6 +487,9 @@ curl "https://api.ceypay.io/v1/bill/payment/list?page=1&pageSize=20" \
       },
       "accountNumber": "1234567890",
       "amountLkr": 4850,
+      "floatCurrency": "LKR",
+      "floatAmount": "4850.00",
+      "exchangeRate": null,
       "reference": "CEB-884213",
       "refund": null,
       "paidAt": "2026-11-12T10:00:00.000Z",
@@ -436,22 +524,24 @@ PROCESSING → COMPLETED
 
 ## Refunds
 
-If the biller rejects the payment, the status moves to `FAILED` and CeyPay returns the full amount to your float automatically. The `refund` object shows the return:
+If the biller rejects the payment, the status moves to `FAILED` and CeyPay returns **exactly what it debited** to the float it came from — the bill's LKR for an LKR-float bill, the quoted USDT for a USDT-float one. It is never reconverted at a later rate, so a rate move between the bill and its failure costs you nothing. The `refund` object shows the return:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | `COMPLETED` once the LKR is back on your float |
-| `completedAt` | string \| null | ISO 8601 timestamp when the LKR returned to your float |
+| `status` | string | `COMPLETED` once the amount is back on your float |
+| `completedAt` | string \| null | ISO 8601 timestamp when it returned to your float |
 | `failedAt` | string \| null | Always `null` for float refunds |
 
-`refund` stays `null` until the LKR is back on your float. CeyPay retries a delayed return automatically, so a `FAILED` bill with `refund: null` resolves without action from you.
+`refund` stays `null` until the amount is back on your float. CeyPay retries a delayed return automatically, so a `FAILED` bill with `refund: null` resolves without action from you.
 
 ### Float Movements
 
 Each bill payment appears in your [Float Balance Ledger Report](/api/v1/offramp#float-balance-ledger-report) with its `billPaymentId`:
 
 - **`DEBIT`** when you create the bill payment
-- **`REFUND`** if the biller fails it — the full amount returns to your float
+- **`REFUND`** if the biller fails it — the same amount returns to your float
+
+Entries appear in the ledger of the float that paid, so query the report with `currency=USDT` to see USDT-funded bills.
 
 ---
 
@@ -501,12 +591,12 @@ Bill webhooks use the same ED25519 signature headers and retry policy as payment
 
 | Status | Error | Description |
 |--------|-------|-------------|
-| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, or `provider` sent |
+| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, `provider` sent, or an `fxLockId` problem — missing, expired, already used, taken for an offramp, or quoted for a different amount |
 | 401 | Unauthorized | Invalid API key, timestamp, or HMAC signature |
 | 403 | Forbidden | Account inactive, or bill payments not enabled |
 | 404 | Not Found | Unknown biller, account not found, or bill payment not found |
 | 409 | Conflict | `merchantTradeNo` already used |
-| 422 | Unprocessable Entity | Insufficient float balance, or `Idempotency-Key` reused with a different request body |
+| 422 | Unprocessable Entity | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
 | 429 | Too Many Requests | Rate limit exceeded |
 | 503 | Service Unavailable | Bill payments temporarily unavailable |
 
