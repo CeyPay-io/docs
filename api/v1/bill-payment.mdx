@@ -255,9 +255,6 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
   },
   "accountNumber": "1234567890",
   "amountLkr": 4850,
-  "amountUsdt": null,
-  "payProvider": null,
-  "paymentNo": null,
   "reference": null,
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -277,9 +274,6 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 | `biller` | object | `code`, `name`, and `category` of the biller |
 | `accountNumber` | string | Account being paid |
 | `amountLkr` | number | LKR amount debited from your float and paid to the biller |
-| `amountUsdt` | null | Always `null` for float-funded bills |
-| `payProvider` | null | Always `null` for float-funded bills |
-| `paymentNo` | null | Always `null` for float-funded bills |
 | `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
 | `refund` | object \| null | Return of the LKR to your float after a biller failure (see [Refunds](#refunds)) |
 | `paidAt` | string | ISO 8601 timestamp when CeyPay debited your float |
@@ -347,9 +341,6 @@ curl "https://api.ceypay.io/v1/bill/payment/8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
   },
   "accountNumber": "1234567890",
   "amountLkr": 4850,
-  "amountUsdt": null,
-  "payProvider": null,
-  "paymentNo": null,
   "reference": "CEB-884213",
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -411,9 +402,6 @@ curl "https://api.ceypay.io/v1/bill/payment?page=1&pageSize=20" \
       },
       "accountNumber": "1234567890",
       "amountLkr": 4850,
-      "amountUsdt": null,
-      "payProvider": null,
-      "paymentNo": null,
       "reference": "CEB-884213",
       "refund": null,
       "paidAt": "2026-11-12T10:00:00.000Z",
