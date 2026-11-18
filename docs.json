@@ -101,7 +101,7 @@
                         "pages": ["api/v1/webhooks"]
                     },
                     {
-                        "group": "Offramp",
+                        "group": "Aggregators",
                         "pages": ["api/v1/offramp", "api/v1/bill-payment"]
                     },
                     {
