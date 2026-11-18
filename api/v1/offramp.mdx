@@ -443,6 +443,7 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
     "originatorVerified": true,
     "originatorEqualsBeneficiary": true,
     "missing": [],
+    "aggregate": { "amountLkr": "295500.00", "amountUsd": "1000.00", "linkedCount": 0 },
     "retentionUntil": null
   }
 }
@@ -562,6 +563,10 @@ Every off-ramp and USDT-funded bill payment is a crypto-to-fiat conversion, so C
 | 64–65 | The amount is at or above the Travel Rule threshold (USD 1,000 equivalent) | The full originator set is mandatory. Below it, the floor is a name plus the account. |
 | 52 | `cddStatus` is `SIMPLIFIED` | Accepted below the rule 20 trigger; held above it. |
 
+<Warning>
+**Linked transactions are judged as one.** The two amount tests run on this transaction *plus* the customer's other off-ramps and bill payments inside the linked window (24 hours by default). Splitting LKR 600,000 into four requests of LKR 150,000 does not avoid the trigger: the fourth is held, and `aggregate` on its verdict shows the total it was tested on. Failed transactions are not counted; pending ones are, because they may still settle.
+</Warning>
+
 <Tip>
 A refusal or hold **debits nothing and creates nothing**. An FX lock passed with the request is returned unspent, so you can fix the request and resubmit under the same `fxLockId` before it expires.
 </Tip>
@@ -580,7 +585,10 @@ A refusal or hold **debits nothing and creates nothing**. An FX lock passed with
 | `originatorEqualsBeneficiary` | boolean | `beneficiaryRelationship` is `SELF` |
 | `missing` | string[] | What you must supply before a held transaction can go through |
 | `reason` | string | What was wrong, in words; absent when `OK` |
+| `aggregate` | object | What the thresholds were tested on: `amountLkr` and `amountUsd` (this transaction plus the linked ones) and `linkedCount` (how many others were in the window) |
 | `retentionUntil` | string \| null | Six years from completion; set once the transaction settles |
+
+Alongside the verdict, each transaction keeps a **copy of the originator record as it stood** when the verdict was reached. Updating the customer later with `POST /v1/aggregator/user` changes what their *next* transaction is judged on; it never rewrites the record of an earlier one.
 
 ### Held — `422`
 
@@ -599,7 +607,8 @@ LKR 450,000 for a customer with only simplified CDD and no source of funds:
     "travelRuleComplete": true,
     "originatorVerified": false,
     "originatorEqualsBeneficiary": false,
-    "missing": ["cddStatus=VERIFIED", "sourceOfFunds"]
+    "missing": ["cddStatus=VERIFIED", "sourceOfFunds"],
+    "aggregate": { "amountLkr": "450000.00", "amountUsd": "1522.84", "linkedCount": 0 }
   }
 }
 ```

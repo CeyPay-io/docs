@@ -329,6 +329,7 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
     "travelRuleComplete": true,
     "originatorVerified": true,
     "missing": [],
+    "aggregate": { "amountLkr": "4850.00", "amountUsd": "16.41", "linkedCount": 0 },
     "retentionUntil": null
   },
   "reference": null,
@@ -353,7 +354,7 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 | `floatCurrency` | string | Which float paid: `LKR` or `USDT` |
 | `floatAmount` | string | What was taken from that float — the bill's LKR for the LKR float, the quoted USDT for the USDT float |
 | `exchangeRate` | number \| null | The USDT/LKR rate your lock fixed; `null` for an LKR-float bill |
-| `compliance` | object | The Travel Rule / CDD verdict reached for this bill — see [Compliance](/api/v1/offramp#compliance). A bill is always paid to a biller, so `originatorEqualsBeneficiary` is not reported |
+| `compliance` | object | The Travel Rule / CDD verdict reached for this bill — see [Compliance](/api/v1/offramp#compliance). Bills and off-ramps by the same customer inside the linked window are judged together, so a bill can be held because of what the customer has already moved. A bill is always paid to a biller, so `originatorEqualsBeneficiary` is not reported |
 | `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
 | `refund` | object \| null | Return of the LKR to your float after a biller failure (see [Refunds](#refunds)) |
 | `paidAt` | string | ISO 8601 timestamp when CeyPay debited your float |
@@ -434,6 +435,7 @@ curl "https://api.ceypay.io/v1/bill/payment/8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
     "travelRuleComplete": true,
     "originatorVerified": true,
     "missing": [],
+    "aggregate": { "amountLkr": "4850.00", "amountUsd": "16.41", "linkedCount": 0 },
     "retentionUntil": null
   },
   "reference": "CEB-884213",
@@ -509,6 +511,7 @@ curl "https://api.ceypay.io/v1/bill/payment/list?page=1&pageSize=20" \
         "travelRuleComplete": true,
         "originatorVerified": true,
         "missing": [],
+        "aggregate": { "amountLkr": "4850.00", "amountUsd": "16.41", "linkedCount": 0 },
         "retentionUntil": null
       },
       "reference": "CEB-884213",
