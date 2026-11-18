@@ -389,12 +389,6 @@ POST /v1/aggregator/offramp
 
 Sending `fxLockId` with the LKR float, or `amountLkr` with the USDT float, is rejected with `400`. If the offramp fails, exactly what was debited returns to the float it came from — never reconverted at a later rate.
 
-<Warning>
-**Breaking change.** Offramps were previously always funded from your LKR float and `floatCurrency` did not exist. It is now **required**: a request that omits it is rejected with `400`.
-
-To keep your current behaviour, send `"floatCurrency": "LKR"` with `amountLkr` and no `fxLockId`. To spend the new USDT float, send `"floatCurrency": "USDT"` with an `fxLockId`.
-</Warning>
-
 ### Example Request
 
 ```bash
