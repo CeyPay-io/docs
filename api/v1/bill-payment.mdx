@@ -1,0 +1,610 @@
+---
+title: "Bill Payment API"
+description: "Pay Sri Lankan bills and mobile reloads from your prefunded LKR float. B2B API for aggregators."
+---
+
+## Overview
+
+The Bill Payment API lets aggregators pay Sri Lankan bills and top up mobile numbers from a prefunded float. You create a bill payment, and CeyPay debits your float and pays the biller in LKR. Your end-user doesn't make a payment to CeyPay.
+
+These are the same floats that fund your [offramps](/api/v1/offramp). The biller is always paid in LKR; `floatCurrency` decides what pays for it:
+
+- **`LKR`** — the bill's amount comes straight off your LKR float. No conversion and no quote.
+- **`USDT`** — you lock a rate with `GET /v1/bill/quote` and pass the `fxLockId`; the quoted USDT comes off your USDT float.
+
+CeyPay charges no fee either way.
+
+Supported biller categories:
+
+| Category | Examples |
+|----------|----------|
+| `MOBILE` | Prepaid mobile reloads |
+| `MOBILEWALLET` | Mobile wallet top-ups |
+| `FIXEDLINE` | Fixed-line telephone bills |
+| `TELEVISION` | TV subscriptions |
+| `UTILITIES` | Electricity, water |
+| `INSURANCE` | Insurance premiums |
+| `FINANCE` | Loan and finance repayments |
+| `TAXI` | Taxi wallet top-ups |
+
+## Endpoints
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| GET | `/v1/bill/list` | List billers you can pay | 300 req/min |
+| GET | `/v1/bill/quote` | Lock a rate to pay from your USDT float | 120 req/min |
+| POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
+| POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
+| GET | `/v1/bill/payment/list` | List your bill payments | 200 req/min |
+| GET | `/v1/bill/payment/:id` | Get a bill payment | 300 req/min |
+
+<Warning>
+The Bill Payment API is only available to merchants with the `AGGREGATOR` role, with bill payments enabled. Requests from accounts without access return `403`. Contact [support@ceypay.io](mailto:support@ceypay.io) to enable bill payments or top up either float.
+</Warning>
+
+## Authentication
+
+Every endpoint requires [HMAC authentication](/api/v1/authentication) with these headers:
+
+- `x-api-key`: Your API key ID only (for example, `ak_live_xxx`)
+- `x-timestamp`: Current Unix timestamp in milliseconds
+- `x-signature`: HMAC-SHA256 signature (using the derived signing key)
+
+## How It Works
+
+<Steps>
+  <Step title="Find the biller">
+    Call `GET /v1/bill/list` and take the biller's `code`. Don't hardcode biller codes — the list can change.
+  </Step>
+  <Step title="Check the account (optional)">
+    Call `POST /v1/bill/check` to confirm the account exists and see the account holder and amount due. For mobile reloads, pass `amount` to see which package it buys.
+  </Step>
+  <Step title="Lock a rate (USDT float only)">
+    Paying from your USDT float? Call `GET /v1/bill/quote` with the bill's LKR amount to see what it costs in USDT, and keep the `fxLockId`. Skip this step entirely when paying from your LKR float.
+  </Step>
+  <Step title="Create the bill payment">
+    Call `POST /v1/bill/payment` with the biller code, account number, LKR amount and `floatCurrency` — plus the `fxLockId` if you are paying in USDT. CeyPay debits that float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
+  </Step>
+  <Step title="Track the result">
+    Receive a `bill.status_changed` webhook on your `webhookUrl`, or poll `GET /v1/bill/payment/:id`. If the biller fails the payment, CeyPay returns exactly what it debited to the float it came from.
+  </Step>
+</Steps>
+
+---
+
+## List Billers
+
+Returns the billers and mobile operators you can pay, with the account format and LKR limits for each.
+
+```
+GET /v1/bill/list
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | No | Filter by category: `MOBILE`, `MOBILEWALLET`, `FIXEDLINE`, `TELEVISION`, `UTILITIES`, `INSURANCE`, `FINANCE`, `TAXI` |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/list?category=UTILITIES" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "code": "CEBB",
+      "name": "Ceylon Electricity Board (CEB)",
+      "category": "UTILITIES",
+      "accountLabel": "Account number",
+      "accountRegex": null,
+      "minAmount": null,
+      "maxAmount": null
+    }
+  ]
+}
+```
+
+### Biller Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | string | Biller code — pass it as `billerCode` in other requests |
+| `name` | string | Biller display name |
+| `category` | string | Biller category |
+| `accountLabel` | string | What to call the account field in your UI: `Mobile number` or `Account number` |
+| `accountRegex` | string \| null | Pattern the account number must match, or `null` for free-form account numbers |
+| `minAmount` | number \| null | Minimum payment in whole LKR, or `null` for no minimum |
+| `maxAmount` | number \| null | Maximum payment in whole LKR, or `null` for no maximum |
+
+---
+
+## Check Account
+
+Validates an account with the biller before you create a payment. Returns the account holder and the amount due or balance, where the biller supports lookups.
+
+```
+POST /v1/bill/check
+```
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/list` |
+| `accountNumber` | string | Yes | Mobile or account number (letters, digits, `/` and `-`; max 50 chars) |
+| `amount` | integer | No | Mobile reloads only: amount in whole LKR, to see which package it buys |
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/bill/check" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here" \
+  -d '{
+    "billerCode": "MOBP",
+    "accountNumber": "0711234567",
+    "amount": 299
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "billerCode": "MOBP",
+  "billerName": "Mobitel Mobile - Prepaid",
+  "accountHolderName": null,
+  "balance": "0",
+  "supported": true,
+  "package": {
+    "name": "Anytime Data 299",
+    "availability": "Available",
+    "dataBundle": "6GB",
+    "callsBundle": null,
+    "smsBundle": null,
+    "validityDays": "30"
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `billerCode` | string | Biller code you sent |
+| `billerName` | string \| null | Biller name |
+| `accountHolderName` | string \| null | Account holder, when the biller returns it |
+| `balance` | string | Amount due for bills, or the account balance the biller reports. `"0"` when unknown |
+| `supported` | boolean | `false` if the biller can't serve this account — don't create a payment for it |
+| `package` | object | Mobile reloads with `amount` only: what that amount buys |
+
+<Note>
+Some billers, such as TV providers, don't support account lookups. For these, CeyPay checks only the account number format and returns `supported: true` with no account holder.
+</Note>
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid account number for this biller |
+| 404 | Unknown biller, or account not found |
+
+---
+
+## Get a Quote
+
+Locks the USDT/LKR rate for a bill of a given LKR amount, for 60 seconds. Pass the returned `fxLockId` to `POST /v1/bill/payment` with `"floatCurrency": "USDT"`, and that USDT is what comes off your float however the rate moves in between.
+
+You only need this when paying from your USDT float. LKR-float bills take no quote.
+
+```
+GET /v1/bill/quote
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `amount` | integer | Yes | The bill amount you intend to pay, in whole LKR |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/quote?amount=4850" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
+  "rateUsdtLkr": 295.50,
+  "amountLkr": 4850.00,
+  "amountUsdt": 16.41285280,
+  "expiresAt": "2026-11-12T10:01:00.000Z"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/bill/payment` |
+| `rateUsdtLkr` | number | Locked USDT/LKR rate |
+| `amountLkr` | number | The bill amount you asked about |
+| `amountUsdt` | number | What that bill costs in USDT at the locked rate, rounded up to 8 decimal places |
+| `expiresAt` | string | When the lock expires — 60 seconds from issuance (ISO 8601) |
+
+<Warning>
+A lock is **single-use** and tied to the amount it quoted. Spending it on a bill of a different amount is rejected with `400`, as is reusing one that is already spent or expired. Request a fresh quote if it expires before you submit.
+
+Bill quotes and [offramp quotes](/api/v1/offramp#get-a-quote) are not interchangeable: they price opposite directions, so a lock taken for one cannot be spent on the other.
+</Warning>
+
+---
+
+## Create Bill Payment
+
+Pays a bill or reload from one of your floats. CeyPay debits that float and sends the payment to the biller in the same request. The biller is paid in LKR whichever float you use.
+
+```
+POST /v1/bill/payment
+```
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `Idempotency-Key` | No | Your retry key (max 128 chars). See [Idempotency](#idempotency) |
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `billerCode` | string | Yes | Biller code from `GET /v1/bill/list` |
+| `accountNumber` | string | Yes | Mobile or account number to reload or pay (letters, digits, `/` and `-`; max 50 chars) |
+| `amount` | integer | Yes | Amount in whole LKR — no cents. Must be within the biller's `minAmount` and `maxAmount` |
+| `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
+| `floatCurrency` | string | **Yes** | Which float pays: `LKR` or `USDT`. There is no default — every request states the float it spends |
+| `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock from `GET /v1/bill/quote`. Its quoted LKR must equal this bill's `amount`. Rejected for the LKR float |
+| `merchantTradeNo` | string | No | Your own reference, unique per account (max 64 chars) |
+| `webhookUrl` | string | No | HTTPS URL that receives `bill.status_changed` webhooks (max 2048 chars) |
+
+### Choosing a float
+
+| `floatCurrency` | You send | Debited from your float | Biller receives |
+|---|---|---|---|
+| `LKR` | nothing extra | the bill's `amount` | that `amount` |
+| `USDT` | `fxLockId` | the quoted `amountUsdt` | the bill's `amount` in LKR |
+
+Sending `fxLockId` with the LKR float is rejected with `400`, as is omitting it with the USDT float. A rejected request debits nothing, creates nothing, and leaves the rate lock unspent.
+
+<Note>
+Don't send `provider`. Bills are paid from your float, so requests that include it return `400`.
+</Note>
+
+### Example Request
+
+```bash
+curl -X POST "https://api.ceypay.io/v1/bill/payment" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here" \
+  -H "Idempotency-Key: bill-77120" \
+  -d '{
+    "billerCode": "CEBB",
+    "accountNumber": "1234567890",
+    "amount": 4850,
+    "floatCurrency": "LKR",
+    "merchantTradeNo": "BILL-77120",
+    "webhookUrl": "https://api.yourplatform.com/ceypay/bill-webhook"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "billPaymentId": "8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "merchantTradeNo": "BILL-77120",
+  "status": "PROCESSING",
+  "fundingSource": "AGGREGATOR_FLOAT",
+  "biller": {
+    "code": "CEBB",
+    "name": "Ceylon Electricity Board (CEB)",
+    "category": "UTILITIES"
+  },
+  "accountNumber": "1234567890",
+  "amountLkr": 4850,
+  "floatCurrency": "LKR",
+  "floatAmount": "4850.00",
+  "exchangeRate": null,
+  "reference": null,
+  "refund": null,
+  "paidAt": "2026-11-12T10:00:00.000Z",
+  "completedAt": null,
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `billPaymentId` | string (UUID) | CeyPay bill payment ID — use this to poll status |
+| `merchantTradeNo` | string \| null | Your reference |
+| `status` | string | Current status (see [Bill Payment Status](#bill-payment-status)) |
+| `fundingSource` | string | Always `AGGREGATOR_FLOAT` |
+| `biller` | object | `code`, `name`, and `category` of the biller |
+| `accountNumber` | string | Account being paid |
+| `amountLkr` | number | LKR paid to the biller |
+| `floatCurrency` | string | Which float paid: `LKR` or `USDT` |
+| `floatAmount` | string | What was taken from that float — the bill's LKR for the LKR float, the quoted USDT for the USDT float |
+| `exchangeRate` | number \| null | The USDT/LKR rate your lock fixed; `null` for an LKR-float bill |
+| `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
+| `refund` | object \| null | Return of the LKR to your float after a biller failure (see [Refunds](#refunds)) |
+| `paidAt` | string | ISO 8601 timestamp when CeyPay debited your float |
+| `completedAt` | string \| null | ISO 8601 timestamp when the biller confirmed payment |
+| `createdAt` | string | ISO 8601 timestamp when the bill payment was created |
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid request, `amount` outside the biller's limits, `provider` sent, or an `fxLockId` that is missing, expired, already used, or quoted for a different amount |
+| 404 | Unknown biller |
+| 409 | `merchantTradeNo` already used |
+| 422 | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
+| 503 | Bill payments temporarily unavailable |
+
+A rejected request never debits your float, and no bill payment is created.
+
+### Idempotency
+
+Send an `Idempotency-Key` header to retry a create request safely:
+
+- **Same key, same body**: CeyPay returns the original bill payment without debiting your float again. A retry may carry a **fresh** `fxLockId` — locks expire in 60 seconds, so it is not part of what makes a request "the same", and the new lock stays unspent.
+- **Same key, different body**: CeyPay rejects the request with `422`.
+
+Use a stable value such as your internal transaction ID. `merchantTradeNo` also prevents duplicates, but a repeated `merchantTradeNo` returns `409` instead of the original bill payment.
+
+---
+
+## Get Bill Payment
+
+Returns a single bill payment. Use it to poll status.
+
+```
+GET /v1/bill/payment/:id
+```
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string (UUID) | `billPaymentId` from Create Bill Payment |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/payment/8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response (Completed)
+
+```json
+{
+  "billPaymentId": "8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "merchantTradeNo": "BILL-77120",
+  "status": "COMPLETED",
+  "fundingSource": "AGGREGATOR_FLOAT",
+  "biller": {
+    "code": "CEBB",
+    "name": "Ceylon Electricity Board (CEB)",
+    "category": "UTILITIES"
+  },
+  "accountNumber": "1234567890",
+  "amountLkr": 4850,
+  "floatCurrency": "LKR",
+  "floatAmount": "4850.00",
+  "exchangeRate": null,
+  "reference": "CEB-884213",
+  "refund": null,
+  "paidAt": "2026-11-12T10:00:00.000Z",
+  "completedAt": "2026-11-12T10:00:30.000Z",
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+The response fields match [Create Bill Payment](#response-fields).
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | `id` is not a valid UUID |
+| 404 | Bill payment not found, or it belongs to another account |
+
+---
+
+## List Bill Payments
+
+Returns your bill payments, newest first.
+
+```
+GET /v1/bill/payment/list
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | integer | No | Page number (default: 1) |
+| `pageSize` | integer | No | Items per page (default: 20, max: 100) |
+| `merchantTradeNo` | string | No | Filter by your reference |
+
+### Example Request
+
+```bash
+curl "https://api.ceypay.io/v1/bill/payment/list?page=1&pageSize=20" \
+  -H "x-api-key: ak_live_abc123" \
+  -H "x-timestamp: 1762934400000" \
+  -H "x-signature: your_signature_here"
+```
+
+### Example Response
+
+```json
+{
+  "data": [
+    {
+      "billPaymentId": "8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "merchantTradeNo": "BILL-77120",
+      "status": "COMPLETED",
+      "fundingSource": "AGGREGATOR_FLOAT",
+      "biller": {
+        "code": "CEBB",
+        "name": "Ceylon Electricity Board (CEB)",
+        "category": "UTILITIES"
+      },
+      "accountNumber": "1234567890",
+      "amountLkr": 4850,
+      "floatCurrency": "LKR",
+      "floatAmount": "4850.00",
+      "exchangeRate": null,
+      "reference": "CEB-884213",
+      "refund": null,
+      "paidAt": "2026-11-12T10:00:00.000Z",
+      "completedAt": "2026-11-12T10:00:30.000Z",
+      "createdAt": "2026-11-12T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+---
+
+## Bill Payment Status
+
+| Status | Description |
+|--------|-------------|
+| `PROCESSING` | CeyPay debited your float and is paying the biller |
+| `COMPLETED` | Biller confirmed the payment — `reference` and `completedAt` are set |
+| `FAILED` | Biller rejected the payment. CeyPay returns the LKR to your float |
+
+```
+PROCESSING → COMPLETED
+     │
+     └→ FAILED (LKR returned to your float)
+```
+
+## Refunds
+
+If the biller rejects the payment, the status moves to `FAILED` and CeyPay returns **exactly what it debited** to the float it came from — the bill's LKR for an LKR-float bill, the quoted USDT for a USDT-float one. It is never reconverted at a later rate, so a rate move between the bill and its failure costs you nothing. The `refund` object shows the return:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `COMPLETED` once the amount is back on your float |
+| `completedAt` | string \| null | ISO 8601 timestamp when it returned to your float |
+| `failedAt` | string \| null | Always `null` for float refunds |
+
+`refund` stays `null` until the amount is back on your float. CeyPay retries a delayed return automatically, so a `FAILED` bill with `refund: null` resolves without action from you.
+
+### Float Movements
+
+Each bill payment appears in your [Float Balance Ledger Report](/api/v1/offramp#float-balance-ledger-report) with its `billPaymentId`:
+
+- **`DEBIT`** when you create the bill payment
+- **`REFUND`** if the biller fails it — the same amount returns to your float
+
+Entries appear in the ledger of the float that paid, so query the report with `currency=USDT` to see USDT-funded bills.
+
+---
+
+## Webhooks
+
+Set `webhookUrl` when you create a bill payment to receive `bill.status_changed` events. CeyPay sends one when the bill payment reaches a final status: `COMPLETED` or `FAILED`.
+
+### Payload
+
+```json
+{
+  "event": "bill.status_changed",
+  "billPaymentId": "8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "merchantTradeNo": "BILL-77120",
+  "status": "COMPLETED",
+  "billerCode": "CEBB",
+  "accountNumber": "1234567890",
+  "amountLkr": 4850,
+  "reference": "CEB-884213",
+  "refund": null,
+  "timestamp": "2026-11-12T10:00:31.000Z"
+}
+```
+
+### Payload Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `bill.status_changed` |
+| `billPaymentId` | string (UUID) | CeyPay bill payment ID |
+| `merchantTradeNo` | string \| null | Your reference |
+| `status` | string | Current status (see [Bill Payment Status](#bill-payment-status)) |
+| `billerCode` | string | Biller code |
+| `accountNumber` | string | Account paid |
+| `amountLkr` | number | LKR amount |
+| `reference` | string \| null | Biller's transaction reference — set when `COMPLETED` |
+| `refund` | object \| null | Return of the LKR to your float (see [Refunds](#refunds)) |
+| `timestamp` | string | ISO 8601 timestamp when CeyPay sent the event |
+
+A failed bill payment normally produces a single `FAILED` webhook, sent after CeyPay returns the LKR to your float, so `refund.status` is already `COMPLETED`. If the return is delayed, you first receive `FAILED` with `refund: null`, then a second `FAILED` webhook with `refund.status: COMPLETED` once the LKR is back.
+
+Bill webhooks use the same ED25519 signature headers and retry policy as payment webhooks. See [Webhooks](/api/v1/webhooks) for signature verification and retries.
+
+---
+
+## Error Responses
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, `provider` sent, or an `fxLockId` problem — missing, expired, already used, taken for an offramp, or quoted for a different amount |
+| 401 | Unauthorized | Invalid API key, timestamp, or HMAC signature |
+| 403 | Forbidden | Account inactive, or bill payments not enabled |
+| 404 | Not Found | Unknown biller, account not found, or bill payment not found |
+| 409 | Conflict | `merchantTradeNo` already used |
+| 422 | Unprocessable Entity | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 503 | Service Unavailable | Bill payments temporarily unavailable |
+
+See [Error Codes](/api/v1/errors) for detailed error handling.
+
+## Related Documentation
+
+- [Offramp](/api/v1/offramp) — LKR float and Float Balance Ledger Report
+- [Authentication](/api/v1/authentication) — HMAC signature details
+- [Webhooks](/api/v1/webhooks) — Signature verification and retry policy
+- [Rate Limits](/api/v1/rate-limits) — API rate limiting

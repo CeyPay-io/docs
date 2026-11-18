@@ -102,7 +102,7 @@
                     },
                     {
                         "group": "Offramp",
-                        "pages": ["api/v1/offramp"]
+                        "pages": ["api/v1/offramp", "api/v1/bill-payment"]
                     },
                     {
                         "group": "Reference",
