@@ -29,7 +29,7 @@ Supported biller categories:
 | GET | `/v1/bill/billers` | List billers you can pay | 300 req/min |
 | POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
 | POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
-| GET | `/v1/bill/payment` | List your bill payments | 200 req/min |
+| GET | `/v1/bill/payment/list` | List your bill payments | 200 req/min |
 | GET | `/v1/bill/payment/:id` | Get a bill payment | 300 req/min |
 
 <Warning>
@@ -365,7 +365,7 @@ The response fields match [Create Bill Payment](#response-fields).
 Returns your bill payments, newest first.
 
 ```
-GET /v1/bill/payment
+GET /v1/bill/payment/list
 ```
 
 ### Query Parameters
@@ -379,7 +379,7 @@ GET /v1/bill/payment
 ### Example Request
 
 ```bash
-curl "https://api.ceypay.io/v1/bill/payment?page=1&pageSize=20" \
+curl "https://api.ceypay.io/v1/bill/payment/list?page=1&pageSize=20" \
   -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1762934400000" \
   -H "x-signature: your_signature_here"
