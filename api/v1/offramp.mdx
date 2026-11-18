@@ -295,13 +295,11 @@ curl "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440
 
 ## Get a Quote
 
-Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Use the returned `fxLockId` in `POST /v1/aggregator/offramp` before it expires.
+Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Pass the returned `fxLockId` to any USDT-float request — `POST /v1/aggregator/offramp` or [`POST /v1/bill/payment`](/api/v1/bill-payment#create-bill-payment) — before it expires. A lock is spent once, on whichever of the two you use it for.
 
-A quote is only needed for offramps funded from your **USDT float**. An LKR-float offramp sends `amountLkr` directly and takes no quote.
+Name exactly one side of the conversion: `amount_usdt` to learn the LKR it delivers, or `amount_lkr` to learn the USDT it costs. Both amounts come back either way, and both are what the transaction will use.
 
-<Note>
-This quote is for offramps only. Bill payments quote the other way round — you give the bill's LKR amount and get back the USDT it costs — so they use [`GET /v1/bill/quote`](/api/v1/bill-payment#get-a-quote). A quote taken for one cannot be spent on the other.
-</Note>
+A quote is only needed when funding from your **USDT float**. LKR-float requests state the LKR amount directly and take no quote.
 
 ```
 GET /v1/aggregator/quote
@@ -309,9 +307,12 @@ GET /v1/aggregator/quote
 
 ### Query Parameters
 
+Exactly one of the two is required; sending both or neither returns `400`.
+
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `amount_usdt` | number | Yes | USDT amount to convert (min: 0.00000001, max: 1,000,000) |
+| `amount_usdt` | number | One of two | USDT you want to spend (min: 0.00000001, max: 1,000,000). The LKR is rounded down |
+| `amount_lkr` | number | One of two | LKR you need delivered (min: 0.01, max: 500,000,000). The USDT is rounded up to 8 decimal places |
 
 ### Example Request
 
@@ -338,10 +339,10 @@ curl "https://api.ceypay.io/v1/aggregator/quote?amount_usdt=1000" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/aggregator/offramp` |
-| `rateUsdtLkr` | number | Locked exchange rate (USDT per LKR) |
-| `amountUsdt` | number | USDT amount you requested |
-| `amountLkr` | number | LKR equivalent at the locked rate |
+| `fxLockId` | string (UUID) | Rate lock ID — pass this to the offramp or bill payment |
+| `rateUsdtLkr` | number | Locked exchange rate (LKR per USDT) |
+| `amountUsdt` | number | USDT that will be debited from your USDT float |
+| `amountLkr` | number | LKR that will be delivered at the locked rate |
 | `expiresAt` | string | When this rate lock expires — 60 seconds from issuance (ISO 8601) |
 
 <Warning>

@@ -10,7 +10,7 @@ The Bill Payment API lets aggregators pay Sri Lankan bills and top up mobile num
 These are the same floats that fund your [offramps](/api/v1/offramp). The biller is always paid in LKR; `floatCurrency` decides what pays for it:
 
 - **`LKR`** — the bill's amount comes straight off your LKR float. No conversion and no quote.
-- **`USDT`** — you lock a rate with `GET /v1/bill/quote` and pass the `fxLockId`; the quoted USDT comes off your USDT float.
+- **`USDT`** — you lock a rate with [`GET /v1/aggregator/quote`](/api/v1/offramp#get-a-quote) and pass the `fxLockId`; the quoted USDT comes off your USDT float.
 
 CeyPay charges no fee either way.
 
@@ -32,7 +32,6 @@ Supported biller categories:
 | Method | Endpoint | Description | Rate Limit |
 |--------|----------|-------------|------------|
 | GET | `/v1/bill/list` | List billers you can pay | 300 req/min |
-| GET | `/v1/bill/quote` | Lock a rate to pay from your USDT float | 120 req/min |
 | POST | `/v1/bill/check` | Check an account before paying | 100 req/min |
 | POST | `/v1/bill/payment` | Create a bill payment | 100 req/min |
 | GET | `/v1/bill/payment/list` | List your bill payments | 200 req/min |
@@ -63,7 +62,7 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
     Call `POST /v1/bill/check` to confirm the account exists and see the account holder and amount due. For mobile reloads, pass `amount` to see which package it buys.
   </Step>
   <Step title="Lock a rate (USDT float only)">
-    Paying from your USDT float? Call `GET /v1/bill/quote` with the bill's LKR amount to see what it costs in USDT, and keep the `fxLockId`. Skip this step entirely when paying from your LKR float.
+    Paying from your USDT float? Call [`GET /v1/aggregator/quote`](/api/v1/offramp#get-a-quote) with `amount_lkr` set to the bill's amount to see what it costs in USDT, and keep the `fxLockId`. It is the same quote endpoint offramps use. Skip this step entirely when paying from your LKR float.
   </Step>
   <Step title="Create the bill payment">
     Call `POST /v1/bill/payment` with the biller code, account number, LKR amount, `floatCurrency` and the customer's `userId` — plus the `fxLockId` if you are paying in USDT. CeyPay debits that float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
@@ -207,30 +206,14 @@ Some billers, such as TV providers, don't support account lookups. For these, Ce
 
 ## Get a Quote
 
-Locks the USDT/LKR rate for a bill of a given LKR amount, for 60 seconds. Pass the returned `fxLockId` to `POST /v1/bill/payment` with `"floatCurrency": "USDT"`, and that USDT is what comes off your float however the rate moves in between.
-
-You only need this when paying from your USDT float. LKR-float bills take no quote.
-
-```
-GET /v1/bill/quote
-```
-
-### Query Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `amount` | integer | Yes | The bill amount you intend to pay, in whole LKR |
-
-### Example Request
+USDT-float bills use the shared aggregator quote: [`GET /v1/aggregator/quote`](/api/v1/offramp#get-a-quote). Pass `amount_lkr` set to the bill's amount and you get back the USDT it costs, rounded up to 8 decimal places, locked for 60 seconds.
 
 ```bash
-curl "https://api.ceypay.io/v1/bill/quote?amount=4850" \
+curl "https://api.ceypay.io/v1/aggregator/quote?amount_lkr=4850" \
   -H "x-api-key: ak_live_abc123" \
   -H "x-timestamp: 1762934400000" \
   -H "x-signature: your_signature_here"
 ```
-
-### Example Response
 
 ```json
 {
@@ -242,20 +225,8 @@ curl "https://api.ceypay.io/v1/bill/quote?amount=4850" \
 }
 ```
 
-### Response Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/bill/payment` |
-| `rateUsdtLkr` | number | Locked USDT/LKR rate |
-| `amountLkr` | number | The bill amount you asked about |
-| `amountUsdt` | number | What that bill costs in USDT at the locked rate, rounded up to 8 decimal places |
-| `expiresAt` | string | When the lock expires — 60 seconds from issuance (ISO 8601) |
-
 <Warning>
-A lock is **single-use** and tied to the amount it quoted. Spending it on a bill of a different amount is rejected with `400`, as is reusing one that is already spent or expired. Request a fresh quote if it expires before you submit.
-
-Bill quotes and [offramp quotes](/api/v1/offramp#get-a-quote) are not interchangeable: they price opposite directions, so a lock taken for one cannot be spent on the other.
+A lock is **single-use** and tied to the amount it quoted. Spending it on a bill of a different `amount` is rejected with `400`, as is reusing one that is already spent or expired. Request a fresh quote if it expires before you submit.
 </Warning>
 
 ---
@@ -283,7 +254,7 @@ POST /v1/bill/payment
 | `amount` | integer | Yes | Amount in whole LKR — no cents. Must be within the biller's `minAmount` and `maxAmount` |
 | `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
 | `floatCurrency` | string | **Yes** | Which float pays: `LKR` or `USDT`. There is no default — every request states the float it spends |
-| `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock from `GET /v1/bill/quote`. Its quoted LKR must equal this bill's `amount`. Rejected for the LKR float |
+| `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock from [`GET /v1/aggregator/quote`](/api/v1/offramp#get-a-quote). Its quoted `amountLkr` must equal this bill's `amount`. Rejected for the LKR float |
 | `userId` | string (UUID) | **Yes** | The customer this bill is paid for — their `userId` from [`POST /v1/aggregator/user`](/api/v1/offramp#create-or-update-user). A bill is a crypto-to-fiat conversion like an off-ramp, so the same originator record is required |
 | `fundingSource` | string | **Yes** | Where the funds reached CeyPay from: `PREFUNDED_FLOAT`, `CEX_WITHDRAWAL` or `ONCHAIN_USER` |
 | `sourceVaspName` | string | **Yes** | The VASP or institution the funds came from — the Travel Rule counterparty |
@@ -641,7 +612,7 @@ Bill webhooks use the same ED25519 signature headers and retry policy as payment
 
 | Status | Error | Description |
 |--------|-------|-------------|
-| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, `provider` sent, or an `fxLockId` problem — missing, expired, already used, taken for an offramp, or quoted for a different amount |
+| 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, `provider` sent, or an `fxLockId` problem — missing, expired, already used, or quoted for a different amount |
 | 401 | Unauthorized | Invalid API key, timestamp, or HMAC signature |
 | 403 | Forbidden | Account inactive, bill payments not enabled, or refused under rule 81 — see [Compliance](/api/v1/offramp#compliance) |
 | 404 | Not Found | Unknown biller, account not found, or bill payment not found |
