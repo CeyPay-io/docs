@@ -96,21 +96,36 @@ curl "https://api.ceypay.io/v1/bank/list" \
 
 ---
 
-## Create or Retrieve User
+## Create or Update User
 
-Upserts an end-user by your internal user ID. Returns the existing record if the user already exists.
+Records an end customer and their **originator identity**. Upserts by your internal user ID: posting again with the same `externalUserId` updates the record, so a customer you have since fully verified, or whose source of funds you have recorded, can be brought up to date before their next transaction.
 
 ```
 POST /v1/aggregator/user
 ```
+
+<Note>
+**Why CeyPay holds this.** On an off-ramp or a USDT-funded bill payment, CeyPay is the beneficiary VASP under the Financial Institutions (Customer Due Diligence) Rules, No. 1 of 2026 (FIU Sri Lanka). The end customer is introduced by you and never seen by CeyPay on-chain, so the originator record is collected from you and retained by CeyPay for six years from each transaction's completion, as rules 83, 90 and 102 require. It is the only identity CeyPay will ever hold for the customer, which is why the fields below are mandatory.
+
+CeyPay relies on your own customer due diligence (rule 52). `cddReference` is your pointer to that KYC record, so copies of the identification data are available to CeyPay without delay on request.
+</Note>
 
 ### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `externalUserId` | string | Yes | User ID in your system (max 255 chars) |
-
-CeyPay only stores the `externalUserId` you provide. No personal or identifying information about your end-users is collected or retained on our end.
+| `customerType` | string | Yes | `INDIVIDUAL` or `ENTITY` |
+| `fullName` | string | Yes | Verified full name (individual) or registered name (entity) |
+| `dateOfBirth` | string | Individuals | ISO 8601 date |
+| `registrationNumber` | string | Entities | Business registration number |
+| `idType` | string | Yes | `NIC`, `PASSPORT` or `BRN` |
+| `idNumber` | string | Yes | Number of that document |
+| `nationality` | string | Yes | ISO 3166-1 alpha-2, e.g. `LK` |
+| `address` | string | Yes | Residential or entity address, as verified under your CDD |
+| `cddStatus` | string | Yes | `VERIFIED`, `SIMPLIFIED` or `NONE` — how you verified the customer. See [Compliance](#compliance) for what each allows |
+| `cddReference` | string | No | Your KYC record reference |
+| `sourceOfFunds` | string | Conditional | Required before any transaction of LKR 200,000 or more for this customer |
 
 ### Example Request
 
@@ -121,7 +136,17 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/user" \
   -H "x-timestamp: 1748430000000" \
   -H "x-signature: your_signature_here" \
   -d '{
-    "externalUserId": "usr_1234567890"
+    "externalUserId": "binance_84213907",
+    "customerType": "INDIVIDUAL",
+    "fullName": "Kasun Perera",
+    "dateOfBirth": "1994-03-12",
+    "idType": "NIC",
+    "idNumber": "199407201234",
+    "nationality": "LK",
+    "address": "No. 24, Galle Road, Colombo 03",
+    "cddStatus": "VERIFIED",
+    "cddReference": "binance-kyc-84213907",
+    "sourceOfFunds": "Salary"
   }'
 ```
 
@@ -130,8 +155,20 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/user" \
 ```json
 {
   "userId": "550e8400-e29b-41d4-a716-446655440000",
-  "externalUserId": "usr_1234567890",
-  "createdAt": "2026-05-28T10:00:00.000Z"
+  "externalUserId": "binance_84213907",
+  "customerType": "INDIVIDUAL",
+  "fullName": "Kasun Perera",
+  "dateOfBirth": "1994-03-12",
+  "registrationNumber": null,
+  "idType": "NIC",
+  "idNumber": "199407201234",
+  "nationality": "LK",
+  "address": "No. 24, Galle Road, Colombo 03",
+  "cddStatus": "VERIFIED",
+  "cddReference": "binance-kyc-84213907",
+  "sourceOfFunds": "Salary",
+  "createdAt": "2026-05-28T10:00:00.000Z",
+  "updatedAt": "2026-05-28T10:00:00.000Z"
 }
 ```
 
@@ -258,13 +295,11 @@ curl "https://api.ceypay.io/v1/aggregator/user/550e8400-e29b-41d4-a716-446655440
 
 ## Get a Quote
 
-Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Use the returned `fxLockId` in `POST /v1/aggregator/offramp` before it expires.
+Fetches the current USDT/LKR exchange rate and locks it for 60 seconds. Pass the returned `fxLockId` to any USDT-float request — `POST /v1/aggregator/offramp` or [`POST /v1/bill/payment`](/api/v1/bill-payment#create-bill-payment) — before it expires. A lock is spent once, on whichever of the two you use it for.
 
-A quote is only needed for offramps funded from your **USDT float**. An LKR-float offramp sends `amountLkr` directly and takes no quote.
+Name exactly one side of the conversion: `amount_usdt` to learn the LKR it delivers, or `amount_lkr` to learn the USDT it costs. Both amounts come back either way, and both are what the transaction will use.
 
-<Note>
-This quote is for offramps only. Bill payments quote the other way round — you give the bill's LKR amount and get back the USDT it costs — so they use [`GET /v1/bill/quote`](/api/v1/bill-payment#get-a-quote). A quote taken for one cannot be spent on the other.
-</Note>
+A quote is only needed when funding from your **USDT float**. LKR-float requests state the LKR amount directly and take no quote.
 
 ```
 GET /v1/aggregator/quote
@@ -272,9 +307,12 @@ GET /v1/aggregator/quote
 
 ### Query Parameters
 
+Exactly one of the two is required; sending both or neither returns `400`.
+
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `amount_usdt` | number | Yes | USDT amount to convert (min: 0.00000001, max: 1,000,000) |
+| `amount_usdt` | number | One of two | USDT you want to spend (min: 0.00000001, max: 1,000,000). The LKR is rounded down |
+| `amount_lkr` | number | One of two | LKR you need delivered (min: 0.01, max: 500,000,000). The USDT is rounded up to 8 decimal places |
 
 ### Example Request
 
@@ -301,10 +339,10 @@ curl "https://api.ceypay.io/v1/aggregator/quote?amount_usdt=1000" \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `fxLockId` | string (UUID) | Rate lock ID — pass this to `POST /v1/aggregator/offramp` |
-| `rateUsdtLkr` | number | Locked exchange rate (USDT per LKR) |
-| `amountUsdt` | number | USDT amount you requested |
-| `amountLkr` | number | LKR equivalent at the locked rate |
+| `fxLockId` | string (UUID) | Rate lock ID — pass this to the offramp or bill payment |
+| `rateUsdtLkr` | number | Locked exchange rate (LKR per USDT) |
+| `amountUsdt` | number | USDT that will be debited from your USDT float |
+| `amountLkr` | number | LKR that will be delivered at the locked rate |
 | `expiresAt` | string | When this rate lock expires — 60 seconds from issuance (ISO 8601) |
 
 <Warning>
@@ -334,6 +372,13 @@ POST /v1/aggregator/offramp
 | `userBankId` | string (UUID) | Yes | Bank account ID from `POST /v1/aggregator/user/:id/bank-account` |
 | `externalRef` | string | Yes | Your idempotency key — must be unique per transfer (max 255 chars) |
 | `webhookUrl` | string | No | URL to receive `payment.completed` or `payment.failed` webhook |
+| `fundingSource` | string | **Yes** | Where the funds reached CeyPay from: `PREFUNDED_FLOAT`, `CEX_WITHDRAWAL` or `ONCHAIN_USER` |
+| `sourceVaspName` | string | **Yes** | The VASP or institution the funds came from — the Travel Rule counterparty, e.g. `Binance` |
+| `originatorWalletAddress` | string | When `fundingSource` is `ONCHAIN_USER` | The customer's own wallet |
+| `sourceTxHash` | string | When `fundingSource` is `ONCHAIN_USER` | The on-chain transaction |
+| `unhostedWallet` | boolean | **Yes** | Whether the funds came from an unhosted (self-custodied) wallet. `true` is refused — see [Compliance](#compliance) |
+| `beneficiaryRelationship` | string | **Yes** | `SELF` for a withdrawal to the customer's own account; otherwise `SPOUSE`, `PARENT`, `CHILD`, `SIBLING`, `RELATIVE`, `FRIEND`, `BUSINESS` or `OTHER` |
+| `purpose` | string | No | Purpose of the transfer. Expected at or above the LKR 200,000 CDD trigger |
 
 ### Choosing a float
 
@@ -359,11 +404,17 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
   -H "x-timestamp: 1748430000000" \
   -H "x-signature: your_signature_here" \
   -d '{
+    "floatCurrency": "USDT",
     "fxLockId": "a3b4c5d6-e7f8-4a9b-b0c1-d2e3f4a5b6c7",
     "userId": "550e8400-e29b-41d4-a716-446655440000",
     "userBankId": "7f4e2100-a1b2-4c3d-8e9f-556677889900",
     "externalRef": "withdrawal-9876543",
-    "webhookUrl": "https://api.yourplatform.com/ceypay/webhook"
+    "webhookUrl": "https://api.yourplatform.com/ceypay/webhook",
+    "fundingSource": "PREFUNDED_FLOAT",
+    "sourceVaspName": "Binance",
+    "unhostedWallet": false,
+    "beneficiaryRelationship": "SELF",
+    "purpose": "Exchange withdrawal"
   }'
 ```
 
@@ -381,7 +432,20 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
   "completedAt": null,
   "failedAt": null,
   "failureReason": null,
-  "createdAt": "2026-05-28T10:00:45.000Z"
+  "createdAt": "2026-05-28T10:00:45.000Z",
+  "compliance": {
+    "status": "OK",
+    "riskLevel": "LOW",
+    "cddTier": "STANDARD",
+    "cddTriggered": true,
+    "fullOriginatorRequired": true,
+    "travelRuleComplete": true,
+    "originatorVerified": true,
+    "originatorEqualsBeneficiary": true,
+    "missing": [],
+    "aggregate": { "amountLkr": "295500.00", "amountUsd": "1000.00", "linkedCount": 0 },
+    "retentionUntil": null
+  }
 }
 ```
 
@@ -400,6 +464,7 @@ curl -X POST "https://api.ceypay.io/v1/aggregator/offramp" \
 | `completedAt` | string \| null | ISO 8601 timestamp when transfer completed |
 | `failedAt` | string \| null | ISO 8601 timestamp when transfer failed |
 | `failureReason` | string \| null | Why the transfer failed — set only when `FAILED` |
+| `compliance` | object | The Travel Rule / CDD verdict reached for this offramp — see [Compliance](#compliance) |
 | `createdAt` | string | ISO 8601 timestamp when offramp was created |
 
 ---
@@ -485,6 +550,92 @@ The response fields are the same as [Create Offramp](#create-offramp).
 
 ---
 
+## Compliance
+
+Every off-ramp and USDT-funded bill payment is a crypto-to-fiat conversion, so CeyPay must apply the **Financial Institutions (Customer Due Diligence) Rules, No. 1 of 2026** before paying it. The verdict is returned as `compliance` on every transaction and kept against it, so the record can reconstruct the transaction six years on.
+
+### What is evaluated
+
+| Rule | Test | Outcome |
+|------|------|---------|
+| 81 | `unhostedWallet` is `true`, or the customer's `cddStatus` is `NONE` | **Refused** with `403`. Enhanced due diligence is a human process the API does not carry. |
+| 20 | The LKR amount is at or above the CDD trigger (LKR 200,000) | The customer must be `VERIFIED` and have a `sourceOfFunds`, or the transaction is **held** with `422` naming what is missing. |
+| 64–65 | The amount is at or above the Travel Rule threshold (USD 1,000 equivalent) | The full originator set is mandatory. Below it, the floor is a name plus the account. |
+| 52 | `cddStatus` is `SIMPLIFIED` | Accepted below the rule 20 trigger; held above it. |
+
+<Warning>
+**Linked transactions are judged as one.** The two amount tests run on this transaction *plus* the customer's other off-ramps and bill payments inside the linked window (24 hours by default). Splitting LKR 600,000 into four requests of LKR 150,000 does not avoid the trigger: the fourth is held, and `aggregate` on its verdict shows the total it was tested on. Failed transactions are not counted; pending ones are, because they may still settle.
+</Warning>
+
+<Tip>
+A refusal or hold **debits nothing and creates nothing**. An FX lock passed with the request is returned unspent, so you can fix the request and resubmit under the same `fxLockId` before it expires.
+</Tip>
+
+### Compliance object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `OK`, `HELD` or `REJECTED` |
+| `riskLevel` | string | `LOW`, `ELEVATED` or `HIGH` |
+| `cddTier` | string | `SIMPLIFIED`, `STANDARD` or `ENHANCED` |
+| `cddTriggered` | boolean | The amount crossed the rule 20 trigger |
+| `fullOriginatorRequired` | boolean | The amount crossed the rules 64–65 threshold |
+| `travelRuleComplete` | boolean | The originator and beneficiary data set held is complete for this transaction |
+| `originatorVerified` | boolean | The customer's `cddStatus` is `VERIFIED` |
+| `originatorEqualsBeneficiary` | boolean | `beneficiaryRelationship` is `SELF` |
+| `missing` | string[] | What you must supply before a held transaction can go through |
+| `reason` | string | What was wrong, in words; absent when `OK` |
+| `aggregate` | object | What the thresholds were tested on: `amountLkr` and `amountUsd` (this transaction plus the linked ones) and `linkedCount` (how many others were in the window) |
+| `retentionUntil` | string \| null | Six years from completion; set once the transaction settles |
+
+Alongside the verdict, each transaction keeps a **copy of the originator record as it stood** when the verdict was reached. Updating the customer later with `POST /v1/aggregator/user` changes what their *next* transaction is judged on; it never rewrites the record of an earlier one.
+
+### Held — `422`
+
+LKR 450,000 for a customer with only simplified CDD and no source of funds:
+
+```json
+{
+  "error": "cdd_threshold_not_met",
+  "message": "amountLkr 450000.00 exceeds CDD trigger (200000); cddStatus=VERIFIED and sourceOfFunds required before release",
+  "compliance": {
+    "status": "HELD",
+    "riskLevel": "ELEVATED",
+    "cddTier": "SIMPLIFIED",
+    "cddTriggered": true,
+    "fullOriginatorRequired": true,
+    "travelRuleComplete": true,
+    "originatorVerified": false,
+    "originatorEqualsBeneficiary": false,
+    "missing": ["cddStatus=VERIFIED", "sourceOfFunds"],
+    "aggregate": { "amountLkr": "450000.00", "amountUsd": "1522.84", "linkedCount": 0 }
+  }
+}
+```
+
+Update the customer with `POST /v1/aggregator/user` and resubmit.
+
+### Refused — `403`
+
+```json
+{
+  "error": "high_risk_source",
+  "message": "unhostedWallet=true; rule 81 enhanced due diligence required — transfer not permitted via API",
+  "compliance": {
+    "status": "REJECTED",
+    "riskLevel": "HIGH",
+    "cddTier": "ENHANCED",
+    "missing": []
+  }
+}
+```
+
+<Note>
+The thresholds (LKR 200,000 and USD 1,000) are CeyPay's reading of Gazette 2511/51 and are configurable on CeyPay's side pending sign-off by compliance counsel. The `compliance` object on every transaction records what was applied to it.
+</Note>
+
+---
+
 ## Webhooks
 
 Set `webhookUrl` in your offramp request to receive a notification when the transfer settles or fails. Webhooks use the same ED25519 signature scheme as other CeyPay webhooks — see [Webhook Integration Guide](/api/v1/webhooks) for signature verification details.
@@ -563,10 +714,12 @@ Use a stable, meaningful key such as your internal withdrawal ID:
 
 | Status | Error | Description |
 |--------|-------|-------------|
-| 400 | Bad Request | Validation error, expired FX quote, or already-used `fxLockId` |
+| 400 | Bad Request | Validation error, expired FX quote, already-used `fxLockId`, `fxLockId` / `amountLkr` sent with the wrong `floatCurrency`, or a missing wallet / tx hash for an `ONCHAIN_USER` source |
 | 401 | Unauthorized | Invalid API key or HMAC signature |
-| 403 | Forbidden | Offramp belongs to another merchant, or account lacks Aggregator access |
-| 404 | Not Found | Offramp not found |
+| 403 | Forbidden | Offramp belongs to another merchant, account lacks Aggregator access, or refused under rule 81 (`unhostedWallet` true, or the customer's `cddStatus` is `NONE`) — see [Compliance](#compliance) |
+| 404 | Not Found | Offramp, user or bank account not found |
+| 409 | Conflict | `externalRef` already used for a request with a different `floatCurrency` or amount |
+| 422 | Unprocessable Entity | Insufficient balance in the selected float, or held for CDD — the amount crosses the LKR 200,000 trigger without a `VERIFIED` customer and a `sourceOfFunds`. `compliance.missing` names what to supply |
 | 429 | Too Many Requests | Rate limit exceeded |
 
 See [Error Codes](/api/v1/errors) for detailed error handling.
