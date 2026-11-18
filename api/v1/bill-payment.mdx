@@ -53,6 +53,9 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
 ## How It Works
 
 <Steps>
+  <Step title="Register the customer">
+    Call [`POST /v1/aggregator/user`](/api/v1/offramp#create-or-update-user) with the customer's verified identity, once. A bill is a crypto-to-fiat conversion like an off-ramp, so CeyPay must hold the originator record for whoever it is paid for. Keep the returned `userId`.
+  </Step>
   <Step title="Find the biller">
     Call `GET /v1/bill/list` and take the biller's `code`. Don't hardcode biller codes — the list can change.
   </Step>
@@ -63,7 +66,7 @@ Every endpoint requires [HMAC authentication](/api/v1/authentication) with these
     Paying from your USDT float? Call `GET /v1/bill/quote` with the bill's LKR amount to see what it costs in USDT, and keep the `fxLockId`. Skip this step entirely when paying from your LKR float.
   </Step>
   <Step title="Create the bill payment">
-    Call `POST /v1/bill/payment` with the biller code, account number, LKR amount and `floatCurrency` — plus the `fxLockId` if you are paying in USDT. CeyPay debits that float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
+    Call `POST /v1/bill/payment` with the biller code, account number, LKR amount, `floatCurrency` and the customer's `userId` — plus the `fxLockId` if you are paying in USDT. CeyPay debits that float and sends the payment to the biller immediately. Store the returned `billPaymentId`.
   </Step>
   <Step title="Track the result">
     Receive a `bill.status_changed` webhook on your `webhookUrl`, or poll `GET /v1/bill/payment/:id`. If the biller fails the payment, CeyPay returns exactly what it debited to the float it came from.
@@ -281,6 +284,13 @@ POST /v1/bill/payment
 | `receiptMobile` | string | No | Mobile number that receives the receipt SMS (format `07XXXXXXXX`) |
 | `floatCurrency` | string | **Yes** | Which float pays: `LKR` or `USDT`. There is no default — every request states the float it spends |
 | `fxLockId` | string (UUID) | When `floatCurrency` is `USDT` | Rate lock from `GET /v1/bill/quote`. Its quoted LKR must equal this bill's `amount`. Rejected for the LKR float |
+| `userId` | string (UUID) | **Yes** | The customer this bill is paid for — their `userId` from [`POST /v1/aggregator/user`](/api/v1/offramp#create-or-update-user). A bill is a crypto-to-fiat conversion like an off-ramp, so the same originator record is required |
+| `fundingSource` | string | **Yes** | Where the funds reached CeyPay from: `PREFUNDED_FLOAT`, `CEX_WITHDRAWAL` or `ONCHAIN_USER` |
+| `sourceVaspName` | string | **Yes** | The VASP or institution the funds came from — the Travel Rule counterparty |
+| `originatorWalletAddress` | string | When `fundingSource` is `ONCHAIN_USER` | The customer's own wallet |
+| `sourceTxHash` | string | When `fundingSource` is `ONCHAIN_USER` | The on-chain transaction |
+| `unhostedWallet` | boolean | **Yes** | Whether the funds came from an unhosted (self-custodied) wallet. `true` is refused — see [Compliance](/api/v1/offramp#compliance) |
+| `purpose` | string | No | Purpose of the payment |
 | `merchantTradeNo` | string | No | Your own reference, unique per account (max 64 chars) |
 | `webhookUrl` | string | No | HTTPS URL that receives `bill.status_changed` webhooks (max 2048 chars) |
 
@@ -311,6 +321,11 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
     "accountNumber": "1234567890",
     "amount": 4850,
     "floatCurrency": "LKR",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "fundingSource": "PREFUNDED_FLOAT",
+    "sourceVaspName": "Binance",
+    "unhostedWallet": false,
+    "purpose": "Electricity bill",
     "merchantTradeNo": "BILL-77120",
     "webhookUrl": "https://api.yourplatform.com/ceypay/bill-webhook"
   }'
@@ -334,6 +349,17 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
   "floatCurrency": "LKR",
   "floatAmount": "4850.00",
   "exchangeRate": null,
+  "compliance": {
+    "status": "OK",
+    "riskLevel": "LOW",
+    "cddTier": "STANDARD",
+    "cddTriggered": false,
+    "fullOriginatorRequired": false,
+    "travelRuleComplete": true,
+    "originatorVerified": true,
+    "missing": [],
+    "retentionUntil": null
+  },
   "reference": null,
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -356,6 +382,7 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 | `floatCurrency` | string | Which float paid: `LKR` or `USDT` |
 | `floatAmount` | string | What was taken from that float — the bill's LKR for the LKR float, the quoted USDT for the USDT float |
 | `exchangeRate` | number \| null | The USDT/LKR rate your lock fixed; `null` for an LKR-float bill |
+| `compliance` | object | The Travel Rule / CDD verdict reached for this bill — see [Compliance](/api/v1/offramp#compliance). A bill is always paid to a biller, so `originatorEqualsBeneficiary` is not reported |
 | `reference` | string \| null | Biller's transaction reference — set once `COMPLETED` |
 | `refund` | object \| null | Return of the LKR to your float after a biller failure (see [Refunds](#refunds)) |
 | `paidAt` | string | ISO 8601 timestamp when CeyPay debited your float |
@@ -367,12 +394,13 @@ curl -X POST "https://api.ceypay.io/v1/bill/payment" \
 | Status | Description |
 |--------|-------------|
 | 400 | Invalid request, `amount` outside the biller's limits, `provider` sent, or an `fxLockId` that is missing, expired, already used, or quoted for a different amount |
-| 404 | Unknown biller |
+| 403 | Refused under rule 81 — `unhostedWallet` true, or the customer's `cddStatus` is `NONE`. See [Compliance](/api/v1/offramp#compliance) |
+| 404 | Unknown biller, or `userId` is not one of your customers |
 | 409 | `merchantTradeNo` already used |
-| 422 | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
+| 422 | Insufficient balance on the float you named, `Idempotency-Key` reused with a different request body, or held for CDD — the amount crosses the LKR 200,000 trigger without a `VERIFIED` customer and a `sourceOfFunds`. `compliance.missing` names what to supply |
 | 503 | Bill payments temporarily unavailable |
 
-A rejected request never debits your float, and no bill payment is created.
+A rejected or held request never debits your float, creates no bill payment, and leaves your rate lock unspent.
 
 ### Idempotency
 
@@ -426,6 +454,17 @@ curl "https://api.ceypay.io/v1/bill/payment/8a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
   "floatCurrency": "LKR",
   "floatAmount": "4850.00",
   "exchangeRate": null,
+  "compliance": {
+    "status": "OK",
+    "riskLevel": "LOW",
+    "cddTier": "STANDARD",
+    "cddTriggered": false,
+    "fullOriginatorRequired": false,
+    "travelRuleComplete": true,
+    "originatorVerified": true,
+    "missing": [],
+    "retentionUntil": null
+  },
   "reference": "CEB-884213",
   "refund": null,
   "paidAt": "2026-11-12T10:00:00.000Z",
@@ -490,6 +529,17 @@ curl "https://api.ceypay.io/v1/bill/payment/list?page=1&pageSize=20" \
       "floatCurrency": "LKR",
       "floatAmount": "4850.00",
       "exchangeRate": null,
+      "compliance": {
+        "status": "OK",
+        "riskLevel": "LOW",
+        "cddTier": "STANDARD",
+        "cddTriggered": false,
+        "fullOriginatorRequired": false,
+        "travelRuleComplete": true,
+        "originatorVerified": true,
+        "missing": [],
+        "retentionUntil": null
+      },
       "reference": "CEB-884213",
       "refund": null,
       "paidAt": "2026-11-12T10:00:00.000Z",
@@ -593,10 +643,10 @@ Bill webhooks use the same ED25519 signature headers and retry policy as payment
 |--------|-------|-------------|
 | 400 | Bad Request | Validation error, invalid account number, amount outside the biller's limits, `provider` sent, or an `fxLockId` problem — missing, expired, already used, taken for an offramp, or quoted for a different amount |
 | 401 | Unauthorized | Invalid API key, timestamp, or HMAC signature |
-| 403 | Forbidden | Account inactive, or bill payments not enabled |
+| 403 | Forbidden | Account inactive, bill payments not enabled, or refused under rule 81 — see [Compliance](/api/v1/offramp#compliance) |
 | 404 | Not Found | Unknown biller, account not found, or bill payment not found |
 | 409 | Conflict | `merchantTradeNo` already used |
-| 422 | Unprocessable Entity | Insufficient balance on the float you named, or `Idempotency-Key` reused with a different request body |
+| 422 | Unprocessable Entity | Insufficient balance on the float you named, `Idempotency-Key` reused with a different request body, or held for CDD — see [Compliance](/api/v1/offramp#compliance) |
 | 429 | Too Many Requests | Rate limit exceeded |
 | 503 | Service Unavailable | Bill payments temporarily unavailable |
 
