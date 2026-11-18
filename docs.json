@@ -92,7 +92,6 @@
                             "api/v1/payments",
                             "api/v1/payment-links",
                             "api/v1/direct-debit",
-                            "api/v1/bill-payment",
                             "api/v1/branch",
                             "api/v1/withdrawal"
                         ]
@@ -103,7 +102,7 @@
                     },
                     {
                         "group": "Offramp",
-                        "pages": ["api/v1/offramp"]
+                        "pages": ["api/v1/offramp", "api/v1/bill-payment"]
                     },
                     {
                         "group": "Reference",
